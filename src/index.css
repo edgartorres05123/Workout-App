@@ -341,3 +341,409 @@ button:disabled { opacity: 0.6; }
 
 @keyframes aparecer { from { opacity: 0; } }
 @keyframes subir { from { transform: translateY(100%); } }
+
+/* ---------- Histórico: calendário ---------- */
+
+.calendario { padding: 16px; }
+
+.calendario-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.calendario-titulo { font-weight: 700; }
+
+.calendario-seta {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  color: var(--texto);
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.calendario-seta:disabled { opacity: 0.25; }
+
+.calendario-grelha {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+
+.calendario-semana {
+  padding: 4px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.calendario-dia {
+  aspect-ratio: 1;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 15px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendario-dia:disabled { opacity: 1; cursor: default; }
+.calendario-dia.hoje { box-shadow: inset 0 0 0 1px var(--texto-suave); }
+
+.calendario-dia.com-treino {
+  background: rgba(92, 230, 92, 0.18);
+  color: var(--verde);
+  font-weight: 700;
+}
+
+.calendario-dia.selecionado {
+  background: var(--verde);
+  color: #0d0d0d;
+}
+
+.filtro-dia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.filtro-dia button {
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--verde);
+  border: 1px solid var(--verde);
+  font-size: 14px;
+}
+
+/* ---------- Histórico: lista ---------- */
+
+.titulo-mes {
+  margin: 24px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-suave);
+}
+
+.cartao-treino {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px;
+  color: var(--texto);
+  font-weight: 400;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cartao-treino:active { border-color: var(--verde); }
+
+.cartao-treino-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cartao-treino-data { font-weight: 700; }
+.cartao-treino-hora { color: var(--texto-suave); flex-shrink: 0; }
+
+.cartao-treino-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cartao-treino-exercicios {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.cartao-treino-exercicios .mais { color: var(--verde); font-weight: 600; }
+
+/* ---------- Histórico: detalhe ---------- */
+
+.detalhe-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: -8px 0 12px;
+}
+
+.botao-voltar,
+.botao-editar {
+  width: auto;
+  padding: 10px 4px;
+  background: transparent;
+  color: var(--verde);
+  font-weight: 600;
+}
+
+.botao-editar { padding: 10px 16px; border: 1px solid var(--verde); }
+.botao-editar.ativo { background: var(--verde); color: #0d0d0d; }
+
+.dica { font-size: 14px; margin-bottom: 16px; }
+
+.campos-treino {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.campos-treino label { flex: 1 1 140px; min-width: 0; }
+
+.campos-treino label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.campos-treino input { margin: 0; min-height: 50px; }
+.campos-treino .erro { flex-basis: 100%; margin: 0; }
+
+.series li.serie-melhor .serie-num { background: var(--verde); color: #0d0d0d; }
+
+.etiqueta-melhor {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(92, 230, 92, 0.18);
+  color: var(--verde);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.series li.serie-editavel { display: block; padding: 6px 0; }
+
+.serie-editavel-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.serie-editavel-linha input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.botao-num {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--texto);
+}
+
+.botao-num.aquecimento { color: var(--laranja); }
+
+.unidade { font-size: 13px; color: var(--texto-suave); }
+
+.serie-editavel .erro { margin: 6px 0 0; }
+
+.notas-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.notas-estado { font-size: 13px; color: var(--texto-suave); }
+
+textarea {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--borda);
+  background: #151515;
+  color: var(--texto);
+  font: inherit;
+  font-size: 16px;
+  resize: vertical;
+}
+
+textarea:focus { outline: 2px solid var(--verde); border-color: transparent; }
+
+/* ---------- Navegação com 5 separadores ---------- */
+
+:root { --azul: #74c0fc; }
+
+.navegacao button { min-width: 0; font-size: 11px; }
+
+.navegacao button span {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Etiquetas de músculos ---------- */
+
+.etiquetas { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.etiqueta {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.etiqueta-principal { background: rgba(92, 230, 92, 0.18); color: var(--verde); }
+
+.etiqueta-secundario {
+  border: 1px solid var(--borda);
+  color: var(--texto-suave);
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.etiqueta-aviso { background: rgba(255, 169, 77, 0.15); color: var(--laranja); }
+
+/* ---------- Seletor de exercícios: músculos ---------- */
+
+.opcao-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.opcao-musculos { font-size: 13px; color: var(--texto-suave); }
+
+/* ---------- Exercícios: lista ---------- */
+
+.botao-novo { margin: 0 0 16px; }
+
+.filtros { display: flex; gap: 8px; margin-bottom: 16px; }
+
+.filtro {
+  width: auto;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--texto-suave);
+  border: 1px solid var(--borda);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.filtro.ativo { background: var(--verde); border-color: var(--verde); color: #0d0d0d; }
+
+.lista-exercicios { padding: 4px 16px; }
+
+.linha-exercicio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--borda);
+  background: transparent;
+  color: var(--texto);
+  font-weight: 400;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.linha-exercicio:last-child { border-bottom: none; }
+.linha-exercicio-nome { font-weight: 700; }
+.linha-exercicio-info { font-size: 13px; color: var(--texto-suave); }
+
+.novo-exercicio .botao-secundario { margin-top: 8px; }
+
+.aviso { color: var(--laranja); font-size: 14px; }
+.aviso p { margin: 12px 0 0; }
+.aviso .botao-secundario { color: var(--laranja); border-color: var(--laranja); }
+
+.botao-link {
+  width: auto;
+  padding: 0;
+  background: transparent;
+  color: var(--verde);
+  font-size: 14px;
+  text-decoration: underline;
+}
+
+/* ---------- Exercícios: página de um exercício ---------- */
+
+.titulo-exercicio { margin-bottom: 16px; word-break: break-word; }
+
+.sem-margem { margin: 0; }
+
+.grelha-musculos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
+.musculo {
+  padding: 12px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--borda);
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 14px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.musculo.principal { background: var(--verde); border-color: var(--verde); color: #0d0d0d; }
+
+.musculo.secundario {
+  background: rgba(116, 192, 252, 0.15);
+  border-color: var(--azul);
+  color: var(--azul);
+}
+
+/* No detalhe, o secundário usa o mesmo azul dos botões */
+.legenda .etiqueta-secundario { border-color: var(--azul); color: var(--azul); }
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.estatisticas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 12px;
+}
+
+.estatisticas .numero-valor { font-size: 20px; }
+
+.botao-sessao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--texto);
+  font-weight: 400;
+  text-align: left;
+}
+
+.sessao-data { font-size: 14px; color: var(--texto-suave); }
+.sessao-series { font-variant-numeric: tabular-nums; }
+.sessao-series .aquecimento { color: var(--laranja); }
+
+.explicacao { margin: 0 0 16px; padding-left: 20px; color: var(--texto-suave); font-size: 14px; }
+.explicacao li { margin-bottom: 6px; }
+
+.acoes-exercicio { margin-top: 24px; }

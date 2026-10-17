@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { normalizarTexto } from './formatar'
+import { nomeMusculo, ordenarMusculos } from './musculos'
 
-// Minúsculas e sem acentos, para pesquisar "supino" e encontrar "Supino" ou "Supíno"
-function normalizar(texto) {
-  return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
-}
-
-export default function EscolherExercicio({ jaEscolhidos = [], onEscolher, onFechar }) {
+// Seletor de exercícios (bottom sheet). Criar um exercício aqui não pede os músculos,
+// para não interromper o treino: fica "Sem músculos" e completa-se no separador Exercícios.
+export default function EscolherExercicio({
+  jaEscolhidos = [],
+  excluir = [],
+  permitirCriar = true,
+  titulo = 'Escolher exercício',
+  onEscolher,
+  onFechar,
+}) {
   const [exercicios, setExercicios] = useState(null) // null = a carregar
   const [pesquisa, setPesquisa] = useState('')
   const [erro, setErro] = useState('')
@@ -16,7 +22,7 @@ export default function EscolherExercicio({ jaEscolhidos = [], onEscolher, onFec
     let ativo = true
     supabase
       .from('exercicios')
-      .select('id, nome')
+      .select('id, nome, exercicio_musculos(musculo, principal)')
       .then(({ data, error }) => {
         if (!ativo) return
         if (error) {
@@ -40,10 +46,10 @@ export default function EscolherExercicio({ jaEscolhidos = [], onEscolher, onFec
   }, [onFechar])
 
   const nomeNovo = pesquisa.trim().replace(/\s+/g, ' ')
-  const lista = exercicios ?? []
-  const filtrados = lista.filter((e) => normalizar(e.nome).includes(normalizar(nomeNovo)))
-  const existeIgual = lista.some((e) => e.nome.toLowerCase() === nomeNovo.toLowerCase())
-  const podeCriar = nomeNovo !== '' && !existeIgual && exercicios !== null
+  const lista = (exercicios ?? []).filter((e) => !excluir.includes(e.id))
+  const filtrados = lista.filter((e) => normalizarTexto(e.nome).includes(normalizarTexto(nomeNovo)))
+  const existeIgual = (exercicios ?? []).some((e) => e.nome.toLowerCase() === nomeNovo.toLowerCase())
+  const podeCriar = permitirCriar && nomeNovo !== '' && !existeIgual && exercicios !== null
 
   async function criar() {
     setACriar(true)
@@ -71,11 +77,11 @@ export default function EscolherExercicio({ jaEscolhidos = [], onEscolher, onFec
         className="sheet"
         role="dialog"
         aria-modal="true"
-        aria-label="Escolher exercício"
+        aria-label={titulo}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sheet-topo">
-          <h2>Escolher exercício</h2>
+          <h2>{titulo}</h2>
           <button className="botao-fechar" onClick={onFechar} aria-label="Fechar">
             ×
           </button>
@@ -84,7 +90,7 @@ export default function EscolherExercicio({ jaEscolhidos = [], onEscolher, onFec
         <form onSubmit={submeter}>
           <input
             type="search"
-            placeholder="Pesquisar ou criar exercício"
+            placeholder={permitirCriar ? 'Pesquisar ou criar exercício' : 'Pesquisar exercício'}
             value={pesquisa}
             onChange={(e) => setPesquisa(e.target.value)}
             autoFocus
@@ -103,26 +109,39 @@ export default function EscolherExercicio({ jaEscolhidos = [], onEscolher, onFec
         <div className="sheet-lista">
           {exercicios === null && <p className="subtitulo">A carregar...</p>}
 
-          {exercicios !== null && exercicios.length === 0 && !nomeNovo && (
+          {exercicios !== null && lista.length === 0 && !nomeNovo && (
             <p className="subtitulo">
-              Ainda não tens exercícios. Escreve o nome de um (por exemplo, «Supino plano») para o
-              criar.
+              {permitirCriar
+                ? 'Ainda não tens exercícios. Escreve o nome de um (por exemplo, «Supino plano») para o criar.'
+                : 'Não há outros exercícios.'}
             </p>
           )}
 
-          {exercicios !== null && exercicios.length > 0 && filtrados.length === 0 && (
+          {exercicios !== null && lista.length > 0 && filtrados.length === 0 && (
             <p className="subtitulo">Nenhum exercício encontrado.</p>
           )}
 
           <ul className="lista">
-            {filtrados.map((exercicio) => (
-              <li key={exercicio.id}>
-                <button className="opcao-exercicio" onClick={() => onEscolher(exercicio)}>
-                  {exercicio.nome}
-                  {jaEscolhidos.includes(exercicio.id) && <span className="ja-escolhido">✓</span>}
-                </button>
-              </li>
-            ))}
+            {filtrados.map((exercicio) => {
+              const principais = ordenarMusculos(exercicio.exercicio_musculos).filter(
+                (m) => m.principal
+              )
+              return (
+                <li key={exercicio.id}>
+                  <button className="opcao-exercicio" onClick={() => onEscolher(exercicio)}>
+                    <span className="opcao-texto">
+                      {exercicio.nome}
+                      {principais.length > 0 && (
+                        <span className="opcao-musculos">
+                          {principais.map((m) => nomeMusculo(m.musculo)).join(' · ')}
+                        </span>
+                      )}
+                    </span>
+                    {jaEscolhidos.includes(exercicio.id) && <span className="ja-escolhido">✓</span>}
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         </div>
       </div>

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import EscolherExercicio from './EscolherExercicio'
+import FormSerie from './FormSerie'
+import Numero from './Numero'
 import {
   calcularVolume,
   formatarCronometro,
   formatarDataExtenso,
   formatarMinutos,
   formatarPeso,
-  lerNumero,
-  pesoParaInput,
+  rotulosSeries,
 } from './formatar'
 
 const CAMPOS_SERIE = 'id, exercicio_id, ordem, repeticoes, peso_kg, aquecimento'
@@ -286,15 +287,6 @@ export default function Treino() {
   )
 }
 
-function Numero({ valor, rotulo }) {
-  return (
-    <div className="numero">
-      <span className="numero-valor">{valor}</span>
-      <span className="numero-rotulo">{rotulo}</span>
-    </div>
-  )
-}
-
 // Componente à parte para só ele voltar a desenhar-se a cada segundo
 function Cronometro({ inicio }) {
   const [agora, setAgora] = useState(() => Date.now())
@@ -312,10 +304,6 @@ function CartaoExercicio({ exercicio, series, inicioTreino, onAdicionar, onApaga
   const ultimaSerie = series[series.length - 1]
   // undefined = a carregar; null = nunca feito antes
   const [ultimaVez, setUltimaVez] = useState(undefined)
-  const [reps, setReps] = useState(ultimaSerie ? String(ultimaSerie.repeticoes) : '')
-  const [kg, setKg] = useState(ultimaSerie ? pesoParaInput(ultimaSerie.peso_kg) : '')
-  const [aquecimento, setAquecimento] = useState(false)
-  const [aEnviar, setAEnviar] = useState(false)
   const [erro, setErro] = useState('')
 
   useEffect(() => {
@@ -338,13 +326,7 @@ function CartaoExercicio({ exercicio, series, inicioTreino, onAdicionar, onApaga
           setUltimaVez(null)
           return
         }
-        const anterior = data[0] ?? null
-        setUltimaVez(anterior)
-        // Só pré-preenche se ainda não houver valores (de uma série deste treino ou escritos à mão)
-        if (anterior) {
-          setReps((atual) => (atual === '' ? String(anterior.repeticoes) : atual))
-          setKg((atual) => (atual === '' ? pesoParaInput(anterior.peso_kg) : atual))
-        }
+        setUltimaVez(data[0] ?? null)
       })
 
     return () => {
@@ -352,38 +334,12 @@ function CartaoExercicio({ exercicio, series, inicioTreino, onAdicionar, onApaga
     }
   }, [exercicio.id, inicioTreino])
 
-  async function submeter(e) {
-    e.preventDefault()
-    const repeticoes = Number(reps.trim())
-    const peso = lerNumero(kg)
-
-    if (!Number.isInteger(repeticoes) || repeticoes <= 0) return setErro('Indica as repetições.')
-    if (peso === null || peso < 0 || peso > 9999.99) return setErro('Indica um peso válido.')
-
-    setAEnviar(true)
-    const mensagem = await onAdicionar(exercicio.id, {
-      repeticoes,
-      peso_kg: Math.round(peso * 100) / 100,
-      aquecimento,
-    })
-    setAEnviar(false)
-    setErro(mensagem ?? '')
-    // Volta a desmarcar para não gravar séries normais como aquecimento por esquecimento
-    if (!mensagem) setAquecimento(false)
-  }
-
   async function apagar(id) {
     const mensagem = await onApagar(id)
     setErro(mensagem ?? '')
   }
 
-  // As séries de aquecimento mostram "A" e não contam para a numeração
-  const rotulos = []
-  let contador = 0
-  for (const serie of series) {
-    if (serie.aquecimento) rotulos.push('A')
-    else rotulos.push(String(++contador))
-  }
+  const rotulos = rotulosSeries(series)
 
   return (
     <div className="cartao exercicio">
@@ -417,40 +373,11 @@ function CartaoExercicio({ exercicio, series, inicioTreino, onAdicionar, onApaga
         </ul>
       )}
 
-      <form className="serie-form" onSubmit={submeter}>
-        <label>
-          <span>Reps</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="0"
-            value={reps}
-            onChange={(e) => setReps(e.target.value)}
-          />
-        </label>
-        <label>
-          <span>kg</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="0"
-            value={kg}
-            onChange={(e) => setKg(e.target.value)}
-          />
-        </label>
-        <button type="submit" disabled={aEnviar} aria-label="Adicionar série">
-          +
-        </button>
-      </form>
-
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={aquecimento}
-          onChange={(e) => setAquecimento(e.target.checked)}
-        />
-        Série de aquecimento
-      </label>
+      {/* Pré-preenchido com a última série deste treino ou, se ainda não houver, com a da última vez */}
+      <FormSerie
+        sugestao={ultimaSerie ?? ultimaVez ?? null}
+        onAdicionar={(valores) => onAdicionar(exercicio.id, valores)}
+      />
 
       {erro && <p className="erro">{erro}</p>}
     </div>

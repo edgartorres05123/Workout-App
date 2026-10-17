@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import Login from './Login'
 import Treino from './Treino'
+import Historico from './Historico'
+import Exercicios from './Exercicios'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -28,6 +30,8 @@ export default function App() {
 const SEPARADORES = [
   { id: 'treino', nome: 'Treino', icone: IconeTreino },
   { id: 'historico', nome: 'Histórico', icone: IconeHistorico },
+  { id: 'exercicios', nome: 'Exercícios', icone: IconeExercicios },
+  // As Estatísticas vão entrar aqui, entre Exercícios e Perfil (a barra está preparada para 5)
   { id: 'perfil', nome: 'Perfil', icone: IconePerfil },
 ]
 
@@ -40,7 +44,9 @@ function Principal({ email }) {
       <div hidden={separador !== 'treino'}>
         <Treino />
       </div>
+      {/* O Histórico é montado de novo sempre que se abre o separador, para recarregar os treinos */}
       {separador === 'historico' && <Historico />}
+      {separador === 'exercicios' && <Exercicios />}
       {separador === 'perfil' && <Perfil email={email} />}
 
       <nav className="navegacao">
@@ -56,15 +62,6 @@ function Principal({ email }) {
           </button>
         ))}
       </nav>
-    </div>
-  )
-}
-
-function Historico() {
-  return (
-    <div>
-      <h1>Histórico</h1>
-      <p className="subtitulo">Em breve.</p>
     </div>
   )
 }
@@ -97,6 +94,17 @@ function IconeHistorico() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+function IconeExercicios() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <circle cx="4.5" cy="6" r="1" />
+      <circle cx="4.5" cy="12" r="1" />
+      <circle cx="4.5" cy="18" r="1" />
     </svg>
   )
 }

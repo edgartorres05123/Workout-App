@@ -55,3 +55,84 @@ export function formatarDataExtenso(data) {
   })
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
+
+// "17/10/2026"
+export function formatarDataCurta(data) {
+  return new Date(data).toLocaleDateString('pt-PT')
+}
+
+// Minúsculas e sem acentos, para pesquisar "supino" e encontrar "Supino" ou "Supíno"
+export function normalizarTexto(texto) {
+  return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+}
+
+// Limpa um nome escrito pelo utilizador: "  Supino   plano " -> "Supino plano"
+export function limparNome(texto) {
+  return texto.trim().replace(/\s+/g, ' ')
+}
+
+// Dois nomes são o mesmo exercício se só diferirem em maiúsculas, acentos ou espaços
+export function nomesIguais(a, b) {
+  return normalizarTexto(limparNome(a)) === normalizarTexto(limparNome(b))
+}
+
+// "18:30"
+export function formatarHora(data) {
+  return new Date(data).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })
+}
+
+// "outubro de 2026"
+export function formatarMes(data) {
+  return new Date(data).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })
+}
+
+// Identifica um dia na hora local: "2026-10-17"
+export function chaveDia(data) {
+  const d = new Date(data)
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mes}-${dia}`
+}
+
+// Valor para um input datetime-local, na hora local: "2026-10-17T18:30"
+export function dataParaInput(data) {
+  const d = new Date(data)
+  const horas = String(d.getHours()).padStart(2, '0')
+  const minutos = String(d.getMinutes()).padStart(2, '0')
+  return `${chaveDia(d)}T${horas}:${minutos}`
+}
+
+// Agrupa as séries (com o exercício aninhado em s.exercicios) por exercício,
+// pela ordem da primeira série de cada um: [{ exercicio, series }]
+export function agruparPorExercicio(series) {
+  const grupos = new Map()
+  for (const s of [...series].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))) {
+    if (!grupos.has(s.exercicio_id)) grupos.set(s.exercicio_id, { exercicio: s.exercicios, series: [] })
+    grupos.get(s.exercicio_id).series.push(s)
+  }
+  return [...grupos.values()]
+}
+
+// As séries de aquecimento mostram "A" e não contam para a numeração: ['A', '1', '2']
+export function rotulosSeries(series) {
+  let contador = 0
+  return series.map((s) => (s.aquecimento ? 'A' : String(++contador)))
+}
+
+// 1RM estimado pela fórmula de Epley; com 1 repetição é o próprio peso
+export function calcular1RM(repeticoes, pesoKg) {
+  const peso = Number(pesoKg)
+  return repeticoes === 1 ? peso : peso * (1 + repeticoes / 30)
+}
+
+// A série (sem aquecimento) com maior 1RM estimado, ou null
+export function melhorSerie(series) {
+  let melhor = null
+  for (const s of series) {
+    if (s.aquecimento) continue
+    if (!melhor || calcular1RM(s.repeticoes, s.peso_kg) > calcular1RM(melhor.repeticoes, melhor.peso_kg)) {
+      melhor = s
+    }
+  }
+  return melhor
+}
