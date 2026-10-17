@@ -1068,3 +1068,180 @@ button.calor-dia:disabled { opacity: 1; cursor: default; }
 .precisao-seta { margin-left: 4px; }
 
 .erm-explicacao { line-height: 1.5; }
+
+/* ---------- Perfil: dados pessoais ---------- */
+
+.dados-pessoais .perfil-valor { margin-bottom: 16px; }
+
+.campos-perfil {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+.campos-perfil .campo { flex: 1 1 150px; min-width: 0; }
+
+.campo { display: block; margin-bottom: 14px; }
+
+.campo-rotulo {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.campo input,
+.campo textarea { margin: 0; }
+
+/* O input de data no iPhone fica mais estreito do que os outros sem isto */
+.campo input[type='date'] {
+  min-height: 50px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.idade { color: var(--verde); font-weight: 600; }
+
+/* ---------- Perfil: medições ---------- */
+
+.cabecalho-seccao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 32px 0 12px;
+}
+
+.cabecalho-seccao .titulo-seccao { margin: 0; }
+
+.botao-pequeno {
+  width: auto;
+  flex-shrink: 0;
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.valores-medicao {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 12px;
+}
+
+.valor-medicao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.valor-medicao-rotulo { font-size: 13px; color: var(--texto-suave); }
+
+.valor-medicao-numero {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.valor-medicao .botao-link { font-size: 15px; text-align: left; }
+
+.diferenca {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.diferenca-favoravel { color: var(--verde); }
+.diferenca-desfavoravel { color: var(--erro); }
+.diferenca-neutro { color: var(--texto-suave); }
+
+.imc-normal { background: rgba(92, 230, 92, 0.18); color: var(--verde); }
+.imc-baixo,
+.imc-excesso { background: rgba(255, 212, 59, 0.15); color: var(--amarelo); }
+.imc-obesidade { background: rgba(255, 107, 107, 0.15); color: var(--erro); }
+
+.linha-medicao {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.linha-medicao .linha-exercicio-info { text-align: right; }
+
+/* ---------- Perfil: formulário de medição ---------- */
+
+.form-medicao { padding-bottom: 8px; }
+.form-medicao .campo-com-erro input { border-color: var(--erro); }
+
+.campo-erro {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--erro);
+}
+
+.obrigatorio { color: var(--erro); }
+
+.form-medicao .botao-perigo { margin-bottom: 8px; }
+
+.confirmacao-inline { margin-top: 16px; }
+.confirmacao-inline p { margin: 0 0 12px; font-size: 14px; }
+.confirmacao-inline .botao-secundario { margin-bottom: 8px; }
+
+/* ---------- Perfil: exportar e sair ---------- */
+
+.exportar { margin-top: 32px; }
+.sem-margem-topo { margin-top: 0; }
+.botao-sair { margin-top: 8px; }
+
+/* ---------- PWA: comportamento de app nativa ---------- */
+
+/* Sem zoom com duplo toque (o zoom com dois dedos continua a funcionar) e sem
+   "pull-to-refresh" nem ressalto acidental no corpo da página; o scroll normal mantém-se */
+html {
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+}
+
+body { overscroll-behavior-y: none; }
+
+/* Sem realce azul ao tocar */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Sem seleção de texto acidental nem menu de toque longo nos botões e na barra de navegação */
+button,
+.navegacao {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Com a barra de estado translúcida do iPhone, o conteúdo que sobe com o scroll ficaria por
+   baixo da hora e da bateria: esta faixa do tamanho da barra de estado tapa-o com o fundo */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  height: env(safe-area-inset-top);
+  background: var(--fundo);
+  pointer-events: none;
+}
+
+/* ---------- Sem ligação à internet ---------- */
+
+.aviso-sem-ligacao {
+  position: sticky;
+  top: env(safe-area-inset-top);
+  z-index: 12;
+  margin: -8px 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #3a2a14;
+  border: 1px solid var(--laranja);
+  color: var(--laranja);
+  font-size: 14px;
+  font-weight: 600;
+}

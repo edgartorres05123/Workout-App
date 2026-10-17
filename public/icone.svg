@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Ícone da Workout App: haltere escuro sobre o verde da app.
+       Fonte dos PNG (pwa-192, pwa-512, pwa-maskable-512, apple-touch-icon e favicon). -->
+  <rect width="512" height="512" fill="#5ce65c"/>
+  <g id="haltere" fill="#121212">
+    <!-- barra -->
+    <rect x="160" y="238" width="192" height="36" rx="12"/>
+    <!-- cabeça esquerda: disco grande e disco pequeno -->
+    <rect x="124" y="148" width="52" height="216" rx="20"/>
+    <rect x="82" y="188" width="36" height="136" rx="14"/>
+    <!-- cabeça direita -->
+    <rect x="336" y="148" width="52" height="216" rx="20"/>
+    <rect x="394" y="188" width="36" height="136" rx="14"/>
+  </g>
+</svg>

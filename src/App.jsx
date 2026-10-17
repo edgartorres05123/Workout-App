@@ -2,12 +2,14 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import Login from './Login'
 import Treino from './Treino'
-import Historico from './Historico'
-import Exercicios from './Exercicios'
 
-// As Estatísticas (e o Chart.js) só são descarregadas quando o separador é aberto,
-// para o ecrã de treino abrir depressa no ginásio
+// Só o ecrã de treino vai no ficheiro principal, para abrir depressa no ginásio; os outros
+// separadores (e o Chart.js) são descarregados quando são abertos. Sem rede também abrem,
+// porque o service worker guarda todos estes ficheiros.
+const Historico = lazy(() => import('./Historico'))
+const Exercicios = lazy(() => import('./Exercicios'))
 const PaginaEstatisticas = lazy(() => import('./PaginaEstatisticas'))
+const Perfil = lazy(() => import('./Perfil'))
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -26,9 +28,42 @@ export default function App() {
     return () => data.subscription.unsubscribe()
   }, [])
 
-  if (aCarregar) return <p>A carregar...</p>
-  if (!session) return <Login />
-  return <Principal email={session.user.email} />
+  return (
+    <>
+      <AvisoSemLigacao />
+      {aCarregar ? (
+        <p>A carregar...</p>
+      ) : !session ? (
+        <Login />
+      ) : (
+        <Principal email={session.user.email} utilizadorId={session.user.id} />
+      )}
+    </>
+  )
+}
+
+// Faixa no topo enquanto o telemóvel estiver sem rede. A interface continua a abrir (o service
+// worker guarda o esqueleto da app) e os pedidos que falham mostram a mesma mensagem.
+function AvisoSemLigacao() {
+  const [ligado, setLigado] = useState(() => navigator.onLine)
+
+  useEffect(() => {
+    const aoLigar = () => setLigado(true)
+    const aoDesligar = () => setLigado(false)
+    window.addEventListener('online', aoLigar)
+    window.addEventListener('offline', aoDesligar)
+    return () => {
+      window.removeEventListener('online', aoLigar)
+      window.removeEventListener('offline', aoDesligar)
+    }
+  }, [])
+
+  if (ligado) return null
+  return (
+    <div className="aviso-sem-ligacao" role="status">
+      Sem ligação à internet. Os dados aparecem quando voltares a estar online.
+    </div>
+  )
 }
 
 const SEPARADORES = [
@@ -39,7 +74,7 @@ const SEPARADORES = [
   { id: 'perfil', nome: 'Perfil', icone: IconePerfil },
 ]
 
-function Principal({ email }) {
+function Principal({ email, utilizadorId }) {
   const [separador, setSeparador] = useState('treino')
   // Opções para o separador aberto (por exemplo, { soSemMusculos: true } nos Exercícios)
   const [opcoes, setOpcoes] = useState({})
@@ -56,17 +91,15 @@ function Principal({ email }) {
       <div hidden={separador !== 'treino'}>
         <Treino />
       </div>
-      {/* O Histórico é montado de novo sempre que se abre o separador, para recarregar os treinos */}
-      {separador === 'historico' && <Historico />}
-      {separador === 'exercicios' && (
-        <Exercicios soSemMusculosInicial={Boolean(opcoes.soSemMusculos)} />
-      )}
-      {separador === 'estatisticas' && (
-        <Suspense fallback={<p className="subtitulo">A carregar...</p>}>
-          <PaginaEstatisticas onIrPara={irPara} />
-        </Suspense>
-      )}
-      {separador === 'perfil' && <Perfil email={email} />}
+      {/* Os outros separadores são montados de novo sempre que se abrem, para recarregar os dados */}
+      <Suspense fallback={<p className="subtitulo">A carregar...</p>}>
+        {separador === 'historico' && <Historico />}
+        {separador === 'exercicios' && (
+          <Exercicios soSemMusculosInicial={Boolean(opcoes.soSemMusculos)} />
+        )}
+        {separador === 'estatisticas' && <PaginaEstatisticas onIrPara={irPara} />}
+        {separador === 'perfil' && <Perfil email={email} utilizadorId={utilizadorId} />}
+      </Suspense>
 
       <nav className="navegacao">
         {SEPARADORES.map(({ id, nome, icone: Icone }) => (
@@ -81,21 +114,6 @@ function Principal({ email }) {
           </button>
         ))}
       </nav>
-    </div>
-  )
-}
-
-function Perfil({ email }) {
-  return (
-    <div>
-      <h1>Perfil</h1>
-      <div className="cartao">
-        <p className="subtitulo perfil-rotulo">Email</p>
-        <p className="perfil-valor">{email}</p>
-      </div>
-      <button className="botao-secundario" onClick={() => supabase.auth.signOut()}>
-        Sair
-      </button>
     </div>
   )
 }

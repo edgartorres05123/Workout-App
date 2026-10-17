@@ -35,6 +35,40 @@ export function buscarTreinosTerminados() {
   )
 }
 
+// Todas as medições corporais (InBody)
+export function buscarMedicoes() {
+  return buscarTudo(() => supabase.from('medicoes').select('*').order('id'))
+}
+
+// Tabelas incluídas na exportação, com uma coluna para ordenar as páginas de forma estável
+const TABELAS_EXPORTACAO = [
+  ['perfil', 'user_id'],
+  ['exercicios', 'id'],
+  ['exercicio_musculos', 'id'],
+  ['treinos', 'id'],
+  ['series', 'id'],
+  ['medicoes', 'id'],
+]
+
+// Todos os dados do utilizador (o RLS garante que só vêm os dele), prontos a guardar em JSON
+export async function exportarTodosOsDados() {
+  const resultados = await Promise.all(
+    TABELAS_EXPORTACAO.map(([tabela, ordem]) =>
+      buscarTudo(() => supabase.from(tabela).select('*').order(ordem))
+    )
+  )
+  const falhou = resultados.find((r) => r.erro)
+  if (falhou) return { erro: falhou.erro }
+  return {
+    dados: {
+      app: 'workout-app',
+      versao: 1,
+      exportado_em: new Date().toISOString(),
+      tabelas: Object.fromEntries(TABELAS_EXPORTACAO.map(([tabela], i) => [tabela, resultados[i].linhas])),
+    },
+  }
+}
+
 // Um treino completo, no mesmo formato que a lista do Histórico usa
 export async function buscarTreino(id) {
   const { data, error } = await supabase
