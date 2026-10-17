@@ -1488,5 +1488,34 @@ body::before {
 }
 
 .origem.ativa { border-color: var(--verde); box-shadow: inset 0 0 0 1px var(--verde); }
+
+/* ---------- Data e hora + duração lado a lado ---------- */
+
+/* A duração fica estreita e a data e hora ocupa o resto, sem passar para cima da duração */
+.campos-treino { flex-wrap: nowrap; }
+.campos-treino label { flex: 1 1 0; }
+.campos-treino label.campo-duracao { flex: 0 0 96px; }
+.campos-treino .campo-duracao input { text-align: center; }
+.campos-treino .erro { flex-basis: auto; }
+
+/* No telemóvel (sobretudo no iPhone), o campo de data e hora tem uma largura mínima própria
+   e ignora o espaço disponível: isto obriga-o a encolher para caber */
+.campos-treino input[type='datetime-local'] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 10px;
+  padding-right: 10px;
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.campos-treino input[type='datetime-local']::-webkit-date-and-time-value { text-align: left; }
+
+/* Com o erro, os campos passam para linhas próprias para a mensagem caber */
+.campos-treino:has(.erro) { flex-wrap: wrap; }
+.campos-treino:has(.erro) .erro { flex-basis: 100%; }
 .origem-titulo { font-weight: 700; }
 .origem-detalhe { font-size: 13px; color: var(--texto-suave); }

@@ -453,7 +453,7 @@ function CamposTreino({ treino, onGuardar }) {
           onKeyDown={sairComEnter}
         />
       </label>
-      <label>
+      <label className="campo-duracao">
         <span>Duração (min)</span>
         <input
           type="text"

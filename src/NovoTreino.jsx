@@ -97,7 +97,7 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
                   onChange={(e) => setData(e.target.value)}
                 />
               </label>
-              <label>
+              <label className="campo-duracao">
                 <span>Duração (min)</span>
                 <input type="text" inputMode="numeric" value={duracao} onChange={(e) => setDuracao(e.target.value)} />
               </label>
