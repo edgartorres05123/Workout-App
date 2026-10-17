@@ -67,7 +67,7 @@ async function buscarDados() {
 }
 
 // Montado de novo sempre que o separador é aberto, por isso recarrega sozinho
-export default function Estatisticas({ onIrPara }) {
+export default function PaginaEstatisticas({ onIrPara }) {
   const [agora] = useState(() => new Date())
   const [dados, setDados] = useState(null) // null = a carregar
   const [erro, setErro] = useState('')

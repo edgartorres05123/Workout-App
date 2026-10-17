@@ -6,10 +6,8 @@ import Historico from './Historico'
 import Exercicios from './Exercicios'
 
 // As Estatísticas (e o Chart.js) só são descarregadas quando o separador é aberto,
-// para o ecrã de treino abrir depressa no ginásio.
-// A extensão .jsx é obrigatória: sem ela, no Windows (que ignora maiúsculas), './Estatisticas'
-// podia resolver para o módulo de cálculos estatisticas.js.
-const Estatisticas = lazy(() => import('./Estatisticas.jsx'))
+// para o ecrã de treino abrir depressa no ginásio
+const PaginaEstatisticas = lazy(() => import('./PaginaEstatisticas'))
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -65,7 +63,7 @@ function Principal({ email }) {
       )}
       {separador === 'estatisticas' && (
         <Suspense fallback={<p className="subtitulo">A carregar...</p>}>
-          <Estatisticas onIrPara={irPara} />
+          <PaginaEstatisticas onIrPara={irPara} />
         </Suspense>
       )}
       {separador === 'perfil' && <Perfil email={email} />}
