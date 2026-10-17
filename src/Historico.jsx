@@ -112,13 +112,14 @@ export default function Historico() {
 
   function voltar() {
     setAbertoId(null)
+    // A data do treino pode ter mudado no editor: o calendário volta a marcar os dias
+    setVersaoCalendario((v) => v + 1)
     requestAnimationFrame(() => window.scrollTo(0, scrollDaLista.current))
   }
 
   // Atualiza um treino na lista depois de uma alteração no detalhe (já gravada no Supabase)
-  function alterarTreino(id, atualizar, mudouData) {
+  function alterarTreino(id, atualizar) {
     setTreinos((atuais) => ordenarTreinos(atuais.map((t) => (t.id === id ? atualizar(t) : t))))
-    if (mudouData) setVersaoCalendario((v) => v + 1)
   }
 
   function treinoApagado(id) {
@@ -181,7 +182,7 @@ export default function Historico() {
           key={aberto.id}
           treino={aberto}
           onVoltar={voltar}
-          onAlterar={(atualizar, mudouData) => alterarTreino(aberto.id, atualizar, mudouData)}
+          onAlterar={(atualizar) => alterarTreino(aberto.id, atualizar)}
           onApagado={() => treinoApagado(aberto.id)}
         />
       )}

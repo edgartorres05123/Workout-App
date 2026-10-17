@@ -81,7 +81,8 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
   }
 
   // Sem transações no cliente, a ordem é pensada para nunca perder dados se algo falhar a meio:
-  // 1) copia os músculos, 2) passa as séries para o destino, 3) só depois apaga este exercício.
+  // 1) copia os músculos, 2) troca o exercício nos blocos, 3) passa as séries para o destino,
+  // 4) só depois apaga este exercício.
   async function confirmarJuntar() {
     const { destino } = painel
     setAProcessar(true)
@@ -106,6 +107,27 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
       if (error) return falhar(error.message)
     }
 
+    // Blocos: onde o destino já está, a linha deste exercício sai (as séries passam para o destino);
+    // nos outros blocos, este exercício é trocado pelo destino
+    const { data: blocosDoDestino, error: erroBlocos } = await supabase
+      .from('bloco_exercicios')
+      .select('bloco_id')
+      .eq('exercicio_id', destino.id)
+    if (erroBlocos) return falhar(erroBlocos.message)
+    if (blocosDoDestino.length > 0) {
+      const { error } = await supabase
+        .from('bloco_exercicios')
+        .delete()
+        .eq('exercicio_id', exercicio.id)
+        .in('bloco_id', blocosDoDestino.map((b) => b.bloco_id))
+      if (error) return falhar(error.message)
+    }
+    const { error: erroTroca } = await supabase
+      .from('bloco_exercicios')
+      .update({ exercicio_id: destino.id })
+      .eq('exercicio_id', exercicio.id)
+    if (erroTroca) return falhar(erroTroca.message)
+
     const { error: erroSeries } = await supabase
       .from('series')
       .update({ exercicio_id: destino.id })
@@ -122,7 +144,15 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
     setErro('')
     const resultado = await contarSeries(exercicio.id)
     if (resultado.erro) return setErro(resultado.erro)
-    setPainel(resultado.total > 0 ? { tipo: 'bloqueado', total: resultado.total } : { tipo: 'apagar' })
+    if (resultado.total > 0) return setPainel({ tipo: 'bloqueado', total: resultado.total })
+
+    // Sem séries, pode ser apagado; sai também dos blocos onde aparece (a base de dados faz isso)
+    const { count, error } = await supabase
+      .from('bloco_exercicios')
+      .select('id', { count: 'exact', head: true })
+      .eq('exercicio_id', exercicio.id)
+    if (error) return setErro(error.message)
+    setPainel({ tipo: 'apagar', blocos: count ?? 0 })
   }
 
   async function confirmarApagar() {
@@ -447,6 +477,7 @@ function Painel({
             {total === 1 ? 'A série' : `As ${total} séries`} de «{exercicio.nome}» passam para «
             {destino.nome}».
           </li>
+          <li>Nos blocos dos treinos, «{exercicio.nome}» é substituído por «{destino.nome}».</li>
           <li>Os músculos que «{destino.nome}» ainda não tem são copiados.</li>
           <li>«{exercicio.nome}» é apagado. Não é possível desfazer.</li>
         </ul>
@@ -482,7 +513,11 @@ function Painel({
 
   return (
     <div className="cartao confirmacao" ref={refPainel}>
-      <p>Apagar «{exercicio.nome}»? Não tem séries registadas.</p>
+      <p>
+        Apagar «{exercicio.nome}»? Não tem séries registadas.
+        {painel.blocos > 0 &&
+          ` Sai também ${painel.blocos === 1 ? 'do bloco onde aparece' : `dos ${painel.blocos} blocos onde aparece`}, sem séries feitas.`}
+      </p>
       <button className="botao-perigo-cheio" onClick={onConfirmarApagar} disabled={aProcessar}>
         {aProcessar ? 'A apagar...' : 'Apagar exercício'}
       </button>

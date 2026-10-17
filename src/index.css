@@ -1245,3 +1245,248 @@ body::before {
   font-size: 14px;
   font-weight: 600;
 }
+
+/* ---------- Treino em blocos: cartão do bloco ---------- */
+
+.titulo-editor { margin-bottom: 16px; }
+
+.cartao.bloco { padding: 16px; }
+
+.bloco-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bloco-topo h2 { margin: 0; font-size: 17px; }
+.bloco-aquecimento .bloco-topo h2 { color: var(--laranja); }
+
+.botao-opcoes {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.bloco-exercicios { list-style: none; margin: 0 0 12px; padding: 0; }
+
+.bloco-exercicios li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.letra {
+  width: 20px;
+  flex-shrink: 0;
+  color: var(--verde);
+  font-weight: 800;
+  text-align: center;
+}
+
+.bloco-aquecimento .letra { color: var(--laranja); }
+
+.bloco-exercicio-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bloco-exercicio-nome { font-weight: 700; }
+.bloco-exercicio-alvo { font-size: 13px; color: var(--texto-suave); }
+
+/* ---------- Treino em blocos: voltas ---------- */
+
+.volta {
+  display: grid;
+  grid-template-columns: 22px 1fr 52px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--borda);
+}
+
+.volta-numero {
+  align-self: center;
+  color: var(--texto-suave);
+  font-weight: 800;
+  text-align: center;
+}
+
+.volta.feita .volta-numero { color: var(--verde); }
+.bloco-aquecimento .volta.feita .volta-numero { color: var(--laranja); }
+
+.volta-linhas { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.volta-linha {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.volta-linha input {
+  min-width: 0;
+  margin: 0;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.volta-linha .campo-reps { flex: 1 1 52px; max-width: 72px; }
+.volta-linha .campo-kg { flex: 1.3 1 64px; max-width: 92px; }
+.volta-linha .letra { width: 16px; }
+
+.volta.feita .volta-linha input {
+  background: rgba(92, 230, 92, 0.08);
+  border-color: rgba(92, 230, 92, 0.35);
+}
+
+.bloco-aquecimento .volta.feita .volta-linha input {
+  background: rgba(255, 169, 77, 0.08);
+  border-color: rgba(255, 169, 77, 0.35);
+}
+
+.vezes { color: var(--texto-suave); }
+
+.botao-volta {
+  width: 52px;
+  height: 52px;
+  align-self: center;
+  padding: 0;
+  border-radius: 14px;
+  background: transparent;
+  border: 2px solid var(--borda);
+  color: var(--texto-suave);
+  font-size: 24px;
+}
+
+.botao-volta.feita { background: var(--verde); border-color: var(--verde); color: #0d0d0d; }
+.bloco-aquecimento .botao-volta.feita { background: var(--laranja); border-color: var(--laranja); }
+
+.volta-erro { grid-column: 1 / -1; margin: 0; }
+
+.bloco-voltas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borda);
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.bloco-voltas.esquerda { justify-content: flex-start; padding-top: 0; border-top: none; }
+
+.botao-redondo {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--borda);
+  color: var(--texto);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+/* Leitura (Histórico): as linhas das voltas seguintes à primeira não repetem o número */
+.serie-num.vazio { background: transparent; }
+
+/* ---------- Novo bloco, opções do bloco e novo treino ---------- */
+
+.tipos-bloco { display: flex; flex-direction: column; gap: 10px; }
+.tipos-bloco.compacto { flex-direction: row; gap: 8px; }
+
+.tipo-opcao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #151515;
+  border: 1px solid var(--borda);
+  color: var(--texto);
+  font-weight: 400;
+  text-align: left;
+}
+
+.tipos-bloco.compacto .tipo-opcao { flex: 1; align-items: center; padding: 12px 6px; text-align: center; }
+.tipo-opcao.ativo { background: var(--verde); border-color: var(--verde); color: #0d0d0d; }
+.tipo-opcao-nome { font-weight: 700; font-size: 15px; }
+.tipo-opcao-descricao { font-size: 13px; color: var(--texto-suave); }
+
+.opcoes-titulo {
+  margin: 20px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-suave);
+}
+
+.opcoes-bloco .opcoes-titulo:first-of-type { margin-top: 4px; }
+
+.opcoes-exercicios li { padding: 10px 0; }
+
+.opcoes-exercicio-topo { display: flex; align-items: center; gap: 6px; }
+.opcoes-exercicio-nome { flex: 1; min-width: 0; font-weight: 700; }
+
+.botao-icone {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--borda);
+  color: var(--texto);
+  font-size: 18px;
+}
+
+.botao-icone.perigo { color: var(--erro); }
+
+.alvos { display: flex; gap: 10px; margin-top: 10px; }
+.alvos label { flex: 1; min-width: 0; }
+
+.alvos label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.alvos input { margin: 0; padding: 10px; }
+
+.linha-botoes { display: flex; gap: 8px; }
+.linha-botoes .botao-secundario { margin-top: 0; }
+
+.linha-escolhida { display: flex; align-items: center; gap: 10px; }
+.linha-escolhida-nome { flex: 1; font-weight: 600; }
+.lista li.linha-escolhida { padding: 6px 0; }
+
+.botao-criar-bloco { margin-top: 16px; }
+.botao-voltar-tipo { display: block; margin: 16px auto 0; }
+
+.lista-origens { display: flex; flex-direction: column; gap: 8px; }
+
+.origem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #151515;
+  border: 1px solid var(--borda);
+  color: var(--texto);
+  font-weight: 400;
+  text-align: left;
+}
+
+.origem.ativa { border-color: var(--verde); box-shadow: inset 0 0 0 1px var(--verde); }
+.origem-titulo { font-weight: 700; }
+.origem-detalhe { font-size: 13px; color: var(--texto-suave); }

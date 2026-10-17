@@ -1,8 +1,13 @@
 import { supabase } from './supabase'
 
-// Um treino com as relações aninhadas: treinos → series → exercicios
+// Os blocos de um treino, com os exercícios e os alvos
+const SELECT_BLOCOS =
+  'blocos(id, ordem, tipo, voltas, notas, bloco_exercicios(id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios(id, nome)))'
+
+// Um treino com as relações aninhadas: treinos → blocos → bloco_exercicios, e treinos → series
 export const SELECT_TREINO =
-  'id, data, duracao_min, notas, series(id, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome))'
+  `id, data, duracao_min, notas, ${SELECT_BLOCOS}, ` +
+  'series(id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome))'
 
 // Um exercício com os seus músculos
 export const SELECT_EXERCICIO = 'id, nome, exercicio_musculos(musculo, principal)'
@@ -46,6 +51,8 @@ const TABELAS_EXPORTACAO = [
   ['exercicios', 'id'],
   ['exercicio_musculos', 'id'],
   ['treinos', 'id'],
+  ['blocos', 'id'],
+  ['bloco_exercicios', 'id'],
   ['series', 'id'],
   ['medicoes', 'id'],
 ]
@@ -79,4 +86,30 @@ export async function buscarTreino(id) {
     .single()
   if (error) return { erro: error.message }
   return { treino: data }
+}
+
+// O treino em curso (duracao_min null, o mais recente) completo, ou null se não houver
+export async function buscarTreinoEmCurso() {
+  const { data, error } = await supabase
+    .from('treinos')
+    .select('id')
+    .is('duracao_min', null)
+    .order('data', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) return { erro: error.message }
+  if (!data) return { treino: null }
+  return buscarTreino(data.id)
+}
+
+// Os últimos treinos terminados que têm blocos, para copiar a estrutura
+export async function buscarTreinosParaCopiar(limite = 30) {
+  const { data, error } = await supabase
+    .from('treinos')
+    .select(`id, data, ${SELECT_BLOCOS}`)
+    .not('duracao_min', 'is', null)
+    .order('data', { ascending: false })
+    .limit(limite)
+  if (error) return { erro: error.message }
+  return { treinos: data.filter((t) => t.blocos.length > 0) }
 }

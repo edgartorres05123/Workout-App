@@ -121,12 +121,6 @@ export function agruparPorExercicio(series) {
   return [...grupos.values()]
 }
 
-// As séries de aquecimento mostram "A" e não contam para a numeração: ['A', '1', '2']
-export function rotulosSeries(series) {
-  let contador = 0
-  return series.map((s) => (s.aquecimento ? 'A' : String(++contador)))
-}
-
 // 1RM estimado pela fórmula de Epley; com 1 repetição é o próprio peso
 export function calcular1RM(repeticoes, pesoKg) {
   const peso = Number(pesoKg)
