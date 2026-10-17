@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
-import { buscarTudo } from './consultas'
+import { buscarExercicios, buscarTudo, SELECT_EXERCICIO } from './consultas'
 import DetalheExercicio from './DetalheExercicio'
 import { estatisticasPorExercicio } from './estatisticas'
 import { formatarDataCurta, limparNome, nomesIguais, normalizarTexto } from './formatar'
 import { nomeMusculo, ordenarMusculos } from './musculos'
-
-const SELECT_EXERCICIO = 'id, nome, exercicio_musculos(musculo, principal)'
 
 function ordenarPorNome(exercicios) {
   return [...exercicios].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-PT'))
@@ -15,7 +13,7 @@ function ordenarPorNome(exercicios) {
 // Exercícios com os músculos, e as estatísticas de cada um (só treinos terminados, sem aquecimento)
 async function buscarDados() {
   const [exercicios, treinos] = await Promise.all([
-    buscarTudo(() => supabase.from('exercicios').select(SELECT_EXERCICIO).order('id')),
+    buscarExercicios(),
     buscarTudo(() =>
       supabase
         .from('treinos')
@@ -31,13 +29,14 @@ async function buscarDados() {
   }
 }
 
-// Montado de novo sempre que o separador é aberto, por isso recarrega sozinho
-export default function Exercicios() {
+// Montado de novo sempre que o separador é aberto, por isso recarrega sozinho.
+// soSemMusculosInicial: abre já com o filtro "Sem músculos" (atalho das Estatísticas).
+export default function Exercicios({ soSemMusculosInicial = false }) {
   const [exercicios, setExercicios] = useState(null) // null = a carregar
   const [estatisticas, setEstatisticas] = useState(() => new Map())
   const [erro, setErro] = useState('')
   const [pesquisa, setPesquisa] = useState('')
-  const [soSemMusculos, setSoSemMusculos] = useState(false)
+  const [soSemMusculos, setSoSemMusculos] = useState(soSemMusculosInicial)
   const [aCriar, setACriar] = useState(false)
   const [abertoId, setAbertoId] = useState(null)
   const ultimoPedido = useRef(0)

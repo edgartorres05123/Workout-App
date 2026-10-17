@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 import { buscarTreino, buscarTudo } from './consultas'
 import DetalheTreino from './DetalheTreino'
@@ -13,6 +13,9 @@ import {
   nomesIguais,
 } from './formatar'
 import { MUSCULOS, proximoEstado } from './musculos'
+
+// Os gráficos (Chart.js) só são descarregados quando são precisos
+const EvolucaoExercicio = lazy(() => import('./EvolucaoExercicio'))
 
 const SESSOES_POR_PAGINA = 10
 
@@ -200,6 +203,18 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
             </div>
           )}
         </div>
+
+        {resumo && (
+          <Suspense
+            fallback={
+              <div className="cartao">
+                <p className="subtitulo sem-margem">A carregar o gráfico...</p>
+              </div>
+            }
+          >
+            <EvolucaoExercicio series={series} onAbrirTreino={abrirTreino} />
+          </Suspense>
+        )}
 
         {sessoes.length > 0 && (
           <div className="cartao">

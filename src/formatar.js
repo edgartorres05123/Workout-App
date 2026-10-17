@@ -56,6 +56,14 @@ export function formatarDataExtenso(data) {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
+const formatoCompacto = new Intl.NumberFormat('pt-PT', { notation: 'compact', maximumFractionDigits: 1 })
+
+// Números grandes abreviados: 9876 -> "9876"; 397600 -> "397,6 mil"; 2400000 -> "2,4 M"
+export function abreviarNumero(numero) {
+  const n = Number(numero)
+  return Math.abs(n) < 10000 ? formatoPeso.format(Math.round(n)) : formatoCompacto.format(n)
+}
+
 // "17/10/2026"
 export function formatarDataCurta(data) {
   return new Date(data).toLocaleDateString('pt-PT')

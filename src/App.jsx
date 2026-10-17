@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import Login from './Login'
 import Treino from './Treino'
 import Historico from './Historico'
 import Exercicios from './Exercicios'
+
+// As Estatísticas (e o Chart.js) só são descarregadas quando o separador é aberto,
+// para o ecrã de treino abrir depressa no ginásio.
+// A extensão .jsx é obrigatória: sem ela, no Windows (que ignora maiúsculas), './Estatisticas'
+// podia resolver para o módulo de cálculos estatisticas.js.
+const Estatisticas = lazy(() => import('./Estatisticas.jsx'))
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -31,12 +37,20 @@ const SEPARADORES = [
   { id: 'treino', nome: 'Treino', icone: IconeTreino },
   { id: 'historico', nome: 'Histórico', icone: IconeHistorico },
   { id: 'exercicios', nome: 'Exercícios', icone: IconeExercicios },
-  // As Estatísticas vão entrar aqui, entre Exercícios e Perfil (a barra está preparada para 5)
+  { id: 'estatisticas', nome: 'Estatísticas', icone: IconeEstatisticas },
   { id: 'perfil', nome: 'Perfil', icone: IconePerfil },
 ]
 
 function Principal({ email }) {
   const [separador, setSeparador] = useState('treino')
+  // Opções para o separador aberto (por exemplo, { soSemMusculos: true } nos Exercícios)
+  const [opcoes, setOpcoes] = useState({})
+
+  function irPara(id, novasOpcoes = {}) {
+    setSeparador(id)
+    setOpcoes(novasOpcoes)
+    window.scrollTo(0, 0)
+  }
 
   return (
     <div className="com-navegacao">
@@ -46,7 +60,14 @@ function Principal({ email }) {
       </div>
       {/* O Histórico é montado de novo sempre que se abre o separador, para recarregar os treinos */}
       {separador === 'historico' && <Historico />}
-      {separador === 'exercicios' && <Exercicios />}
+      {separador === 'exercicios' && (
+        <Exercicios soSemMusculosInicial={Boolean(opcoes.soSemMusculos)} />
+      )}
+      {separador === 'estatisticas' && (
+        <Suspense fallback={<p className="subtitulo">A carregar...</p>}>
+          <Estatisticas onIrPara={irPara} />
+        </Suspense>
+      )}
       {separador === 'perfil' && <Perfil email={email} />}
 
       <nav className="navegacao">
@@ -54,7 +75,7 @@ function Principal({ email }) {
           <button
             key={id}
             className={separador === id ? 'ativo' : ''}
-            onClick={() => setSeparador(id)}
+            onClick={() => irPara(id)}
             aria-current={separador === id ? 'page' : undefined}
           >
             <Icone />
@@ -105,6 +126,14 @@ function IconeExercicios() {
       <circle cx="4.5" cy="6" r="1" />
       <circle cx="4.5" cy="12" r="1" />
       <circle cx="4.5" cy="18" r="1" />
+    </svg>
+  )
+}
+
+function IconeEstatisticas() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h16M7 16v-5M12 16V6M17 16v-8" />
     </svg>
   )
 }

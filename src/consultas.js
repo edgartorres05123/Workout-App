@@ -4,6 +4,9 @@ import { supabase } from './supabase'
 export const SELECT_TREINO =
   'id, data, duracao_min, notas, series(id, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome))'
 
+// Um exercício com os seus músculos
+export const SELECT_EXERCICIO = 'id, nome, exercicio_musculos(musculo, principal)'
+
 // O Supabase devolve no máximo 1000 linhas por pedido. Para estatísticas que precisam de todas,
 // pede página a página. criarConsulta() tem de devolver uma consulta nova, com uma ordem estável.
 export async function buscarTudo(criarConsulta, tamanhoPagina = 1000) {
@@ -14,6 +17,22 @@ export async function buscarTudo(criarConsulta, tamanhoPagina = 1000) {
     linhas.push(...data)
     if (data.length < tamanhoPagina) return { linhas }
   }
+}
+
+// Todos os exercícios com os músculos
+export function buscarExercicios() {
+  return buscarTudo(() => supabase.from('exercicios').select(SELECT_EXERCICIO).order('id'))
+}
+
+// Todos os treinos terminados com as séries (sem os nomes dos exercícios), para as estatísticas
+export function buscarTreinosTerminados() {
+  return buscarTudo(() =>
+    supabase
+      .from('treinos')
+      .select('id, data, duracao_min, series(id, exercicio_id, ordem, repeticoes, peso_kg, aquecimento)')
+      .not('duracao_min', 'is', null)
+      .order('id')
+  )
 }
 
 // Um treino completo, no mesmo formato que a lista do Histórico usa

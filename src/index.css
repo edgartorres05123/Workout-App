@@ -747,3 +747,324 @@ textarea:focus { outline: 2px solid var(--verde); border-color: transparent; }
 .explicacao li { margin-bottom: 6px; }
 
 .acoes-exercicio { margin-top: 24px; }
+
+/* ---------- Estatísticas: elementos comuns ---------- */
+
+:root { --amarelo: #ffd43b; }
+
+.seccao { margin-bottom: 32px; }
+
+.titulo-seccao {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+
+.nota { margin: 12px 0 0; font-size: 13px; color: var(--texto-suave); }
+
+.pilulas {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pilulas::-webkit-scrollbar { display: none; }
+
+.pilula {
+  width: auto;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  color: var(--texto-suave);
+  font-size: 14px;
+  font-weight: 600;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pilula.ativa { background: var(--verde); border-color: var(--verde); color: #0d0d0d; }
+
+.pilulas.pequenas { gap: 4px; margin-bottom: 8px; }
+.pilulas.pequenas .pilula { padding: 6px 10px; font-size: 13px; }
+
+.cartao-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cartao-topo h3 { margin: 0; font-size: 15px; }
+.cartao-topo .pilulas { margin: 0; }
+
+.grafico { position: relative; width: 100%; }
+
+.carregando {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 0;
+  color: var(--texto-suave);
+}
+
+.carregando-roda {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--borda);
+  border-top-color: var(--verde);
+  border-radius: 50%;
+  animation: rodar 0.8s linear infinite;
+}
+
+@keyframes rodar { to { transform: rotate(360deg); } }
+
+.vazio { text-align: center; padding: 32px 20px; }
+.vazio p { margin: 0 0 8px; }
+.vazio-icone { font-size: 40px; }
+
+/* ---------- Estatísticas: resumo ---------- */
+
+.cartoes-resumo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cartao-numero {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0;
+  padding: 14px 12px;
+}
+
+.cartao-numero-valor {
+  color: var(--verde);
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.cartao-numero-rotulo { font-size: 12px; color: var(--texto-suave); }
+
+/* ---------- Estatísticas: mapa de calor ---------- */
+
+.calor-scroll { overflow-x: auto; }
+
+.calor {
+  display: grid;
+  grid-template-rows: 16px repeat(7, auto);
+  gap: 3px;
+  min-width: 300px;
+}
+
+.calor-mes {
+  font-size: 11px;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.calor-semana {
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  color: var(--texto-suave);
+}
+
+.calor-dia {
+  display: block;
+  width: auto;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: #262626;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.calor-dia:disabled { opacity: 1; cursor: default; }
+.calor-dia.fora { background: transparent; }
+.calor-dia.nivel-1 { background: rgba(92, 230, 92, 0.3); }
+.calor-dia.nivel-2 { background: rgba(92, 230, 92, 0.5); }
+.calor-dia.nivel-3 { background: rgba(92, 230, 92, 0.75); }
+.calor-dia.nivel-4 { background: var(--verde); }
+
+.calor-legenda {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--texto-suave);
+}
+
+.calor-legenda .calor-dia { width: 11px; }
+.calor-legenda span:first-child { margin-right: 4px; }
+.calor-legenda span:last-child { margin-left: 4px; }
+
+.consistencia {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--borda);
+}
+
+.numero-valor.verde { color: var(--verde); }
+
+.sheet.sheet-baixa { height: auto; max-height: 85dvh; }
+
+.seta { color: var(--texto-suave); font-size: 22px; }
+
+/* ---------- Estatísticas: recordes ---------- */
+
+.recordes {
+  display: flex;
+  gap: 12px;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 16px;
+  scrollbar-width: none;
+}
+
+.recordes::-webkit-scrollbar { display: none; }
+
+.cartao-recorde {
+  flex: 0 0 72%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  border-radius: 16px;
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  color: var(--texto);
+  font-weight: 400;
+  text-align: left;
+  scroll-snap-align: start;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cartao-recorde:active { border-color: var(--verde); }
+.cartao-recorde-rotulo { font-size: 13px; color: var(--texto-suave); }
+
+.cartao-recorde-valor {
+  color: var(--verde);
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.cartao-recorde-detalhe { font-weight: 600; }
+.cartao-recorde-data { font-size: 13px; color: var(--texto-suave); }
+
+/* ---------- Estatísticas: músculos ---------- */
+
+.lista-musculos { list-style: none; margin: 16px 0 0; padding: 0; }
+
+.lista-musculos li {
+  display: grid;
+  grid-template-columns: 96px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.lista-musculos-barra {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--borda);
+  overflow: hidden;
+}
+
+.lista-musculos-barra span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--verde);
+}
+
+.lista-musculos-pct {
+  text-align: right;
+  color: var(--texto-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.aviso-caixa {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 169, 77, 0.1);
+}
+
+.aviso-caixa p { margin: 0 0 8px; }
+.aviso-caixa .botao-link { color: var(--laranja); }
+
+/* ---------- Exercício: evolução e eRM ---------- */
+
+.legenda-recorde { display: flex; align-items: center; gap: 6px; }
+
+.ponto-recorde {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--amarelo);
+}
+
+.ponto-escolhido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #151515;
+}
+
+.ponto-escolhido strong { color: var(--verde); font-size: 18px; margin-right: 8px; }
+
+.ponto-escolhido-detalhe {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.ponto-escolhido .botao-link { flex-shrink: 0; }
+
+.etiqueta-recorde { background: rgba(255, 212, 59, 0.15); color: var(--amarelo); }
+
+.erm-valor {
+  margin: 8px 0 4px;
+  color: var(--verde);
+  font-size: 34px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.erm-formulas { margin: 0 0 12px; font-size: 13px; color: var(--texto-suave); }
+
+.precisao {
+  width: auto;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.precisao-alta { background: rgba(92, 230, 92, 0.18); color: var(--verde); }
+.precisao-media { background: rgba(255, 212, 59, 0.15); color: var(--amarelo); }
+.precisao-baixa { background: rgba(255, 169, 77, 0.15); color: var(--laranja); }
+.precisao-seta { margin-left: 4px; }
+
+.erm-explicacao { line-height: 1.5; }
