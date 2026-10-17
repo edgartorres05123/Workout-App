@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CORES } from './cores'
+import { CORES, degradeVerde } from './cores'
 import Grafico from './Grafico'
 import Pilulas from './Pilulas'
 import { serieMedicoes } from './corpo'
@@ -48,7 +48,9 @@ export default function GraficoMedicoes({ medicoes, alturaCm }) {
           data: pontos.map((p) => p.valor),
           borderColor: CORES.verde,
           borderWidth: 2,
-          tension: 0.25,
+          tension: 0.3,
+          fill: true,
+          backgroundColor: degradeVerde,
           pointRadius: pontos.map((p) => (p.medicao.id === selecionadoId ? 8 : 4)),
           pointBackgroundColor: CORES.verde,
           pointBorderColor: pontos.map((p) => (p.medicao.id === selecionadoId ? CORES.texto : CORES.verde)),
@@ -80,7 +82,7 @@ export default function GraficoMedicoes({ medicoes, alturaCm }) {
         x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 10 } },
         y: {
           border: { display: false },
-          grid: { color: CORES.borda },
+          grid: { color: CORES.grelha },
           grace: '10%',
           ticks: { maxTicksLimit: 5, callback: (v) => formatarPeso(v) },
         },

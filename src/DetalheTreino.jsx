@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react'
+import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
+import { useAvisos } from './avisos'
+import Confirmar from './Confirmar'
 import EditorTreino from './EditorTreino'
+import IconeBloco from './IconeBloco'
 import NotasTreino from './NotasTreino'
 import Numero from './Numero'
 import { estadoVoltas, letraExercicio, normalizarTreino, numerarBlocos, tituloBloco } from './blocos'
@@ -22,6 +26,7 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
   const [confirmarApagar, setConfirmarApagar] = useState(false)
   const [aApagar, setAApagar] = useState(false)
   const [erro, setErro] = useState('')
+  const avisar = useAvisos()
 
   async function guardarTreino(campos) {
     const { error } = await supabase.from('treinos').update(campos).eq('id', treino.id)
@@ -36,15 +41,17 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
     const { error } = await supabase.from('treinos').delete().eq('id', treino.id)
     setAApagar(false)
     if (error) return setErro(error.message)
+    avisar('Treino apagado')
     onApagado()
   }
 
   if (aEditar) {
     return (
-      <div>
+      <div className="vista-detalhe">
         <div className="detalhe-topo">
-          <button className="botao-voltar" onClick={() => setAEditar(false)}>
-            ‹ Concluir edição
+          <button className="botao-voltar com-icone" onClick={() => setAEditar(false)}>
+            <ChevronLeft size={20} />
+            Concluir edição
           </button>
         </div>
         <EditorTreino
@@ -67,18 +74,20 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
   const semBloco = treino.series.filter((s) => !idsBlocos.has(s.bloco_id))
 
   return (
-    <div>
+    <div className="vista-detalhe">
       <div className="detalhe-topo">
-        <button className="botao-voltar" onClick={onVoltar}>
-          ‹ Voltar
+        <button className="botao-voltar com-icone" onClick={onVoltar}>
+          <ChevronLeft size={20} />
+          Voltar
         </button>
         <button
-          className="botao-editar"
+          className="botao-editar com-icone"
           onClick={() => {
             setAEditar(true)
             window.scrollTo(0, 0)
           }}
         >
+          <Pencil size={16} />
           Editar
         </button>
       </div>
@@ -118,20 +127,22 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
 
       {erro && <p className="erro">{erro}</p>}
 
-      {confirmarApagar ? (
-        <div className="cartao confirmacao">
-          <p>Apagar este treino? Os blocos e as séries serão apagados e não é possível desfazer.</p>
-          <button className="botao-perigo-cheio" onClick={apagarTreino} disabled={aApagar}>
-            {aApagar ? 'A apagar...' : 'Apagar treino'}
-          </button>
-          <button className="botao-secundario" onClick={() => setConfirmarApagar(false)}>
-            Cancelar
-          </button>
-        </div>
-      ) : (
-        <button className="botao-perigo" onClick={() => setConfirmarApagar(true)}>
-          Apagar treino
-        </button>
+      <button className="botao-perigo com-icone" onClick={() => setConfirmarApagar(true)}>
+        <Trash2 size={18} />
+        Apagar treino
+      </button>
+
+      {confirmarApagar && (
+        <Confirmar
+          titulo="Apagar treino?"
+          textoConfirmar="Apagar treino"
+          aProcessar={aApagar}
+          onConfirmar={apagarTreino}
+          onCancelar={() => setConfirmarApagar(false)}
+        >
+          <p>Os blocos e as séries deste treino serão apagados. Não é possível desfazer.</p>
+          {erro && <p className="erro">{erro}</p>}
+        </Confirmar>
       )}
     </div>
   )
@@ -161,7 +172,10 @@ function BlocoLeitura({ bloco, titulo, series }) {
   return (
     <div className={`cartao bloco bloco-${bloco.tipo}`}>
       <div className="bloco-topo">
-        <h2>{titulo}</h2>
+        <h2 className="etiqueta-bloco">
+          <IconeBloco tipo={bloco.tipo} />
+          {titulo}
+        </h2>
       </div>
 
       <ul className="bloco-exercicios">

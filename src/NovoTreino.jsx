@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
+import { CalendarPlus, Play, Plus } from 'lucide-react'
 import { buscarTreinosParaCopiar } from './consultas'
+import Esqueleto from './Esqueleto'
+import Janela from './Janela'
 import { estruturaParaCopiar, resumoEstrutura } from './blocos'
 import { dataParaInput, formatarDataExtenso } from './formatar'
 
@@ -37,14 +40,6 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
     }
   }, [])
 
-  useEffect(() => {
-    function teclaPremida(e) {
-      if (e.key === 'Escape') onFechar()
-    }
-    window.addEventListener('keydown', teclaPremida)
-    return () => window.removeEventListener('keydown', teclaPremida)
-  }, [onFechar])
-
   async function criar(e) {
     e.preventDefault()
     setErro('')
@@ -70,21 +65,7 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
   }
 
   return (
-    <div className="sheet-fundo" onClick={onFechar}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={passado ? 'Registar treino passado' : 'Começar treino'}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-topo">
-          <h2>{passado ? 'Registar treino passado' : 'Começar treino'}</h2>
-          <button className="botao-fechar" onClick={onFechar} aria-label="Fechar">
-            ×
-          </button>
-        </div>
-
+    <Janela titulo={passado ? 'Registar treino passado' : 'Começar treino'} onFechar={onFechar}>
         <form className="sheet-lista" onSubmit={criar}>
           {passado && (
             <div className="campos-treino sem-margem-topo">
@@ -112,11 +93,14 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
               onClick={() => setOrigem(null)}
               aria-pressed={origem === null}
             >
-              <span className="origem-titulo">Treino vazio</span>
+              <span className="origem-titulo com-icone">
+                <Plus size={16} />
+                Treino vazio
+              </span>
               <span className="origem-detalhe">Adicionas os blocos à medida que treinas.</span>
             </button>
 
-            {anteriores === null && <p className="nota">A carregar os treinos anteriores...</p>}
+            {anteriores === null && <Esqueleto cartoes={3} linhas={2} />}
             {anteriores?.length > 0 && <p className="nota">Ou copia os blocos, os exercícios e os alvos de um treino anterior:</p>}
             {anteriores?.map((t) => (
               <button
@@ -133,11 +117,11 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
           </div>
 
           {erro && <p className="erro">{erro}</p>}
-          <button type="submit" className="botao-criar-bloco" disabled={aCriar}>
+          <button type="submit" className="botao-criar-bloco com-icone" disabled={aCriar}>
+            {passado ? <CalendarPlus size={18} /> : <Play size={18} />}
             {aCriar ? 'A preparar...' : passado ? 'Registar treino' : 'Começar treino'}
           </button>
         </form>
-      </div>
-    </div>
+    </Janela>
   )
 }

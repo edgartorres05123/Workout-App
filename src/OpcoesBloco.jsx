@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { ChevronDown, ChevronUp, Minus, Plus, Trash2, X } from 'lucide-react'
+import Confirmar from './Confirmar'
 import EscolherExercicio from './EscolherExercicio'
+import IconeBloco from './IconeBloco'
+import Janela from './Janela'
 import { TIPOS_BLOCO, letraExercicio, motivoTipoIndisponivel } from './blocos'
 import { lerNumero, pesoParaInput } from './formatar'
 
@@ -25,14 +29,6 @@ export default function OpcoesBloco({
   const [notas, setNotas] = useState(bloco.notas ?? '')
   const [aGravar, setAGravar] = useState(false)
   const [erro, setErro] = useState('')
-
-  useEffect(() => {
-    function teclaPremida(e) {
-      if (e.key === 'Escape' && !aEscolher) onFechar()
-    }
-    window.addEventListener('keydown', teclaPremida)
-    return () => window.removeEventListener('keydown', teclaPremida)
-  }, [onFechar, aEscolher])
 
   const exercicios = bloco.bloco_exercicios
 
@@ -69,6 +65,12 @@ export default function OpcoesBloco({
     executar(onApagar)
   }
 
+  async function confirmarAcao() {
+    const mensagem =
+      confirmar.tipo === 'bloco' ? await executar(onApagar) : await executar(() => onRemoverExercicio(confirmar.be))
+    if (!mensagem) setConfirmar(null)
+  }
+
   function guardarNotas() {
     const valor = notas.trim() === '' ? null : notas.trim()
     if (valor !== (bloco.notas ?? null)) executar(() => onAtualizar({ notas: valor }))
@@ -76,168 +78,122 @@ export default function OpcoesBloco({
 
   return (
     <>
-      <div className="sheet-fundo" onClick={onFechar}>
-        <div
-          className="sheet"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Opções: ${titulo}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="sheet-topo">
-            <h2>{titulo}</h2>
-            <button className="botao-fechar" onClick={onFechar} aria-label="Fechar">
-              ×
-            </button>
-          </div>
+      <Janela titulo={titulo} onFechar={onFechar}>
+        <div className={`sheet-lista opcoes-bloco tipo-${bloco.tipo}`}>
+          {erro && <p className="erro">{erro}</p>}
 
-          <div className="sheet-lista opcoes-bloco">
-            {erro && <p className="erro">{erro}</p>}
-
-            <h3 className="opcoes-titulo">Tipo</h3>
-            <div className="tipos-bloco compacto">
-              {TIPOS_BLOCO.map((t) => (
-                <button
-                  key={t.id}
-                  className={t.id === bloco.tipo ? 'tipo-opcao ativo' : 'tipo-opcao'}
-                  onClick={() => mudarTipo(t.id)}
-                  disabled={aGravar}
-                  aria-pressed={t.id === bloco.tipo}
-                >
-                  <span className="tipo-opcao-nome">{t.nome}</span>
-                </button>
-              ))}
-            </div>
-
-            <h3 className="opcoes-titulo">Voltas</h3>
-            <div className="bloco-voltas esquerda">
+          <h3 className="opcoes-titulo">Tipo</h3>
+          <div className="tipos-bloco compacto">
+            {TIPOS_BLOCO.map((t) => (
               <button
-                className="botao-redondo"
-                onClick={() => executar(() => onMudarVoltas(-1))}
-                disabled={bloco.voltas <= 1 || aGravar}
-                aria-label="Menos uma volta"
-              >
-                −
-              </button>
-              <span>
-                {bloco.voltas} {bloco.voltas === 1 ? 'volta' : 'voltas'}
-              </span>
-              <button
-                className="botao-redondo"
-                onClick={() => executar(() => onMudarVoltas(1))}
+                key={t.id}
+                className={t.id === bloco.tipo ? `tipo-opcao tipo-${t.id} ativo` : `tipo-opcao tipo-${t.id}`}
+                onClick={() => mudarTipo(t.id)}
                 disabled={aGravar}
-                aria-label="Mais uma volta"
+                aria-pressed={t.id === bloco.tipo}
               >
-                +
+                <IconeBloco tipo={t.id} size={18} />
+                <span className="tipo-opcao-nome">{t.nome}</span>
               </button>
-            </div>
-
-            <h3 className="opcoes-titulo">Exercícios</h3>
-            {exercicios.length === 0 && <p className="nota sem-margem-topo">Ainda não há exercícios neste bloco.</p>}
-            <ul className="lista opcoes-exercicios">
-              {exercicios.map((be, i) => (
-                <li key={be.id}>
-                  <div className="opcoes-exercicio-topo">
-                    {exercicios.length > 1 && <span className="letra">{letraExercicio(i)}</span>}
-                    <span className="opcoes-exercicio-nome">{be.exercicios?.nome ?? '—'}</span>
-                    <button
-                      className="botao-icone"
-                      onClick={() => executar(() => onMoverExercicio(i, -1))}
-                      disabled={i === 0 || aGravar}
-                      aria-label="Mover para cima"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      className="botao-icone"
-                      onClick={() => executar(() => onMoverExercicio(i, 1))}
-                      disabled={i === exercicios.length - 1 || aGravar}
-                      aria-label="Mover para baixo"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      className="botao-icone perigo"
-                      onClick={() => pedirRemover(be)}
-                      disabled={aGravar}
-                      aria-label={`Remover ${be.exercicios?.nome ?? 'exercício'}`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <Alvos
-                    key={`${be.id}-${be.reps_alvo}-${be.peso_alvo}`}
-                    blocoExercicio={be}
-                    onGuardar={(campos) => executar(() => onAtualizarExercicio(be.id, campos))}
-                  />
-                  {confirmar?.tipo === 'exercicio' && confirmar.be.id === be.id && (
-                    <div className="confirmacao-inline">
-                      <p>
-                        Remover {be.exercicios?.nome} do bloco apaga também{' '}
-                        {confirmar.total === 1 ? 'a série feita' : `as ${confirmar.total} séries feitas`} neste
-                        bloco.
-                      </p>
-                      <button
-                        className="botao-perigo-cheio"
-                        onClick={async () => {
-                          if (!(await executar(() => onRemoverExercicio(be)))) setConfirmar(null)
-                        }}
-                        disabled={aGravar}
-                      >
-                        Remover e apagar
-                      </button>
-                      <button className="botao-secundario" onClick={() => setConfirmar(null)}>
-                        Cancelar
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <button className="botao-secundario sem-margem-topo" onClick={() => setAEscolher(true)} disabled={aGravar}>
-              + Adicionar exercício
-            </button>
-
-            <h3 className="opcoes-titulo">Notas do bloco</h3>
-            <textarea
-              rows={2}
-              placeholder="Ex: descanso de 90 s entre voltas"
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-              onBlur={guardarNotas}
-            />
-
-            <h3 className="opcoes-titulo">Posição no treino</h3>
-            <div className="linha-botoes">
-              <button className="botao-secundario" onClick={() => executar(() => onMover(-1))} disabled={primeiro || aGravar}>
-                ↑ Para cima
-              </button>
-              <button className="botao-secundario" onClick={() => executar(() => onMover(1))} disabled={ultimo || aGravar}>
-                ↓ Para baixo
-              </button>
-            </div>
-
-            {confirmar?.tipo === 'bloco' ? (
-              <div className="confirmacao-inline">
-                <p>
-                  Apagar este bloco e {series.length === 1 ? 'a série feita' : `as ${series.length} séries feitas`}?
-                  Não é possível desfazer.
-                </p>
-                <button className="botao-perigo-cheio" onClick={() => executar(onApagar)} disabled={aGravar}>
-                  Apagar bloco
-                </button>
-                <button className="botao-secundario" onClick={() => setConfirmar(null)}>
-                  Cancelar
-                </button>
-              </div>
-            ) : (
-              <button className="botao-perigo" onClick={pedirApagar} disabled={aGravar}>
-                Apagar bloco
-              </button>
-            )}
+            ))}
           </div>
+
+          <h3 className="opcoes-titulo">Voltas</h3>
+          <div className="bloco-voltas esquerda">
+            <button
+              className="botao-redondo"
+              onClick={() => executar(() => onMudarVoltas(-1))}
+              disabled={bloco.voltas <= 1 || aGravar}
+              aria-label="Menos uma volta"
+            >
+              <Minus size={20} />
+            </button>
+            <span className="numero-voltas">
+              {bloco.voltas} {bloco.voltas === 1 ? 'volta' : 'voltas'}
+            </span>
+            <button
+              className="botao-redondo"
+              onClick={() => executar(() => onMudarVoltas(1))}
+              disabled={aGravar}
+              aria-label="Mais uma volta"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+
+          <h3 className="opcoes-titulo">Exercícios</h3>
+          {exercicios.length === 0 && <p className="nota sem-margem-topo">Ainda não há exercícios neste bloco.</p>}
+          <ul className="lista opcoes-exercicios">
+            {exercicios.map((be, i) => (
+              <li key={be.id}>
+                <div className="opcoes-exercicio-topo">
+                  {exercicios.length > 1 && <span className="letra">{letraExercicio(i)}</span>}
+                  <span className="opcoes-exercicio-nome">{be.exercicios?.nome ?? '—'}</span>
+                  <button
+                    className="botao-icone"
+                    onClick={() => executar(() => onMoverExercicio(i, -1))}
+                    disabled={i === 0 || aGravar}
+                    aria-label="Mover para cima"
+                  >
+                    <ChevronUp size={20} />
+                  </button>
+                  <button
+                    className="botao-icone"
+                    onClick={() => executar(() => onMoverExercicio(i, 1))}
+                    disabled={i === exercicios.length - 1 || aGravar}
+                    aria-label="Mover para baixo"
+                  >
+                    <ChevronDown size={20} />
+                  </button>
+                  <button
+                    className="botao-icone perigo"
+                    onClick={() => pedirRemover(be)}
+                    disabled={aGravar}
+                    aria-label={`Remover ${be.exercicios?.nome ?? 'exercício'}`}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <Alvos
+                  key={`${be.id}-${be.reps_alvo}-${be.peso_alvo}`}
+                  blocoExercicio={be}
+                  onGuardar={(campos) => executar(() => onAtualizarExercicio(be.id, campos))}
+                />
+              </li>
+            ))}
+          </ul>
+          <button className="botao-secundario com-icone sem-margem-topo" onClick={() => setAEscolher(true)} disabled={aGravar}>
+            <Plus size={18} />
+            Adicionar exercício
+          </button>
+
+          <h3 className="opcoes-titulo">Notas do bloco</h3>
+          <textarea
+            rows={2}
+            placeholder="Ex: descanso de 90 s entre voltas"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            onBlur={guardarNotas}
+          />
+
+          <h3 className="opcoes-titulo">Posição no treino</h3>
+          <div className="linha-botoes">
+            <button className="botao-secundario com-icone" onClick={() => executar(() => onMover(-1))} disabled={primeiro || aGravar}>
+              <ChevronUp size={18} />
+              Para cima
+            </button>
+            <button className="botao-secundario com-icone" onClick={() => executar(() => onMover(1))} disabled={ultimo || aGravar}>
+              <ChevronDown size={18} />
+              Para baixo
+            </button>
+          </div>
+
+          <button className="botao-perigo com-icone" onClick={pedirApagar} disabled={aGravar}>
+            <Trash2 size={18} />
+            Apagar bloco
+          </button>
         </div>
-      </div>
+      </Janela>
 
       {aEscolher && (
         <EscolherExercicio
@@ -252,6 +208,29 @@ export default function OpcoesBloco({
           }}
           onFechar={() => setAEscolher(false)}
         />
+      )}
+
+      {confirmar && (
+        <Confirmar
+          titulo={confirmar.tipo === 'bloco' ? 'Apagar bloco?' : `Remover ${confirmar.be.exercicios?.nome ?? 'exercício'}?`}
+          textoConfirmar={confirmar.tipo === 'bloco' ? 'Apagar bloco' : 'Remover e apagar'}
+          aProcessar={aGravar}
+          onConfirmar={confirmarAcao}
+          onCancelar={() => setConfirmar(null)}
+        >
+          {confirmar.tipo === 'bloco' ? (
+            <p>
+              O bloco e {series.length === 1 ? 'a série feita' : `as ${series.length} séries feitas`} serão apagados.
+              Não é possível desfazer.
+            </p>
+          ) : (
+            <p>
+              Remover {confirmar.be.exercicios?.nome} do bloco apaga também{' '}
+              {confirmar.total === 1 ? 'a série feita' : `as ${confirmar.total} séries feitas`} neste bloco.
+            </p>
+          )}
+          {erro && <p className="erro">{erro}</p>}
+        </Confirmar>
       )}
     </>
   )

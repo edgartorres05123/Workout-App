@@ -4,6 +4,7 @@ import {
   BarElement,
   CategoryScale,
   Chart,
+  Filler,
   LinearScale,
   LineController,
   LineElement,
@@ -12,13 +13,15 @@ import {
   RadialLinearScale,
   Tooltip,
 } from 'chart.js'
-import { CORES } from './cores'
+import { CORES, FONTE } from './cores'
+import { reduzirMovimento } from './movimento'
 
-// Só as peças do Chart.js que a app usa (barras, linhas e radar), para o código ficar leve
+// Só as peças do Chart.js que a app usa (barras, linhas com preenchimento e radar)
 Chart.register(
   BarController,
   BarElement,
   CategoryScale,
+  Filler,
   LinearScale,
   LineController,
   LineElement,
@@ -29,23 +32,29 @@ Chart.register(
 )
 
 Chart.defaults.color = CORES.textoSuave
-Chart.defaults.borderColor = CORES.borda
-Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+Chart.defaults.borderColor = CORES.grelha
+Chart.defaults.font.family = FONTE
 Chart.defaults.font.size = 12
 Chart.defaults.maintainAspectRatio = false
-Chart.defaults.animation.duration = 300
+Chart.defaults.animation.duration = reduzirMovimento() ? 0 : 350
+Chart.defaults.scale.grid.color = CORES.grelha
+Chart.defaults.scale.border.display = false
+Chart.defaults.elements.line.borderWidth = 2.5
+Chart.defaults.elements.point.hoverBorderWidth = 2
 Object.assign(Chart.defaults.plugins.tooltip, {
-  backgroundColor: 'rgba(10, 10, 10, 0.95)',
-  borderColor: CORES.borda,
+  backgroundColor: 'rgba(24, 24, 24, 0.96)',
+  borderColor: 'rgba(92, 230, 92, 0.35)',
   borderWidth: 1,
   titleColor: CORES.textoSuave,
   bodyColor: CORES.texto,
-  titleFont: { size: 13, weight: 'normal' },
-  bodyFont: { size: 15, weight: 'bold' },
-  padding: 10,
-  cornerRadius: 10,
+  titleFont: { family: FONTE, size: 12, weight: 500 },
+  bodyFont: { family: FONTE, size: 15, weight: 700 },
+  footerFont: { family: FONTE, size: 12, weight: 500 },
+  padding: 12,
+  cornerRadius: 12,
   displayColors: false,
   caretPadding: 8,
+  caretSize: 6,
 })
 
 // Gráfico do Chart.js. `dados` e `opcoes` devem vir de um useMemo, para o gráfico só se

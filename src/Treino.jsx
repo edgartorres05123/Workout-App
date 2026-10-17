@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { buscarTreino, buscarTreinoEmCurso } from './consultas'
 import EditorTreino from './EditorTreino'
+import Esqueleto from './Esqueleto'
+import InicioTreino from './InicioTreino'
 import NovoTreino from './NovoTreino'
-import Numero from './Numero'
-import { formatarMinutos, formatarPeso } from './formatar'
 
 // Copia a estrutura de um treino anterior (blocos, exercícios e alvos) para o treino novo
 async function copiarEstrutura(treinoId, estrutura) {
@@ -24,9 +24,10 @@ async function copiarEstrutura(treinoId, estrutura) {
   return erroExercicios ? erroExercicios.message : null
 }
 
-// Separador Treino: retoma o treino em curso, ou mostra o ecrã para começar um treino
-// ou registar um passado. O editor é o mesmo nos dois casos.
-export default function Treino() {
+// Separador Treino: retoma o treino em curso, ou mostra o ecrã de início para começar um treino,
+// repetir o último ou registar um passado. O editor é o mesmo em todos os casos.
+// nome: o nome do utilizador (para a saudação); ativo: o separador está visível.
+export default function Treino({ nome, ativo = true }) {
   const [aCarregar, setACarregar] = useState(true)
   const [falhouCarregar, setFalhouCarregar] = useState(false)
   const [treino, setTreino] = useState(null)
@@ -34,6 +35,8 @@ export default function Treino() {
   const [novo, setNovo] = useState(null) // null | 'aoVivo' | 'passado' (janela aberta)
   const [resumo, setResumo] = useState(null)
   const [erro, setErro] = useState('')
+  const [aCriar, setACriar] = useState(false)
+  const [versaoInicio, setVersaoInicio] = useState(0) // muda quando um treino acaba
 
   function aplicarCarregamento(resultado) {
     if (resultado.erro) {
@@ -89,10 +92,21 @@ export default function Treino() {
     setResumo(novoResumo)
     setTreino(null)
     setErro('')
+    setVersaoInicio((v) => v + 1)
     window.scrollTo(0, 0)
   }
 
-  if (aCarregar) return <p className="subtitulo">A carregar...</p>
+  // "Repetir último treino": começa logo um treino ao vivo com a estrutura copiada
+  async function repetir(estrutura) {
+    setACriar(true)
+    setErro('')
+    const mensagem = await criarTreino({ data: new Date().toISOString(), duracao_min: null, estrutura })
+    setACriar(false)
+    if (mensagem) setErro(mensagem)
+  }
+
+  if (aCarregar) return <Esqueleto titulo numeros={3} cartoes={2} />
+
 
   if (falhouCarregar) {
     return (
@@ -113,8 +127,8 @@ export default function Treino() {
           modo={modo}
           treino={treino}
           onAlterar={(atualizar) => setTreino((atual) => atualizar(atual))}
-          onTerminado={(r) => fecharTreino({ ...r, titulo: 'Treino terminado 💪' })}
-          onConcluido={(r) => fecharTreino({ ...r, titulo: 'Treino registado ✓' })}
+          onTerminado={(r) => fecharTreino({ ...r, titulo: 'Treino terminado' })}
+          onConcluido={(r) => fecharTreino({ ...r, titulo: 'Treino registado' })}
           onApagado={() => fecharTreino(null)}
         />
       </div>
@@ -123,28 +137,17 @@ export default function Treino() {
 
   return (
     <div>
-      <h1>Treino</h1>
-      {resumo ? (
-        <div className="cartao resumo">
-          <h2>{resumo.titulo}</h2>
-          <div className="numeros">
-            <Numero valor={formatarMinutos(resumo.duracao)} rotulo="Duração" />
-            <Numero valor={`${formatarPeso(resumo.volume)} kg`} rotulo="Volume" />
-          </div>
-          <p className="subtitulo resumo-detalhe">
-            {resumo.numExercicios} {resumo.numExercicios === 1 ? 'exercício' : 'exercícios'} ·{' '}
-            {resumo.numSeries} {resumo.numSeries === 1 ? 'série' : 'séries'}
-          </p>
-        </div>
-      ) : (
-        <p className="subtitulo">Não tens nenhum treino em curso.</p>
-      )}
       {erro && <p className="erro">{erro}</p>}
-
-      <button onClick={() => setNovo('aoVivo')}>Começar treino</button>
-      <button className="botao-secundario" onClick={() => setNovo('passado')}>
-        Registar treino passado
-      </button>
+      <InicioTreino
+        nome={nome}
+        ativo={ativo}
+        recarregar={versaoInicio}
+        resumo={resumo}
+        aCriar={aCriar}
+        onComecar={() => setNovo('aoVivo')}
+        onRepetir={repetir}
+        onRegistar={() => setNovo('passado')}
+      />
 
       {novo && <NovoTreino modo={novo} onCriar={criarTreino} onFechar={() => setNovo(null)} />}
     </div>

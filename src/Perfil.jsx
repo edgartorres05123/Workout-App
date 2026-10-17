@@ -1,6 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { ChevronRight, Download, LogOut, Plus, Ruler } from 'lucide-react'
 import { supabase } from './supabase'
+import { useAvisos } from './avisos'
 import { buscarMedicoes, exportarTodosOsDados } from './consultas'
+import Esqueleto from './Esqueleto'
+import EstadoVazio from './EstadoVazio'
 import FormMedicao from './FormMedicao'
 import Pilulas from './Pilulas'
 import {
@@ -14,7 +18,14 @@ import {
   validarNascimento,
 } from './corpo'
 import { dataDeChave } from './estatisticas'
-import { chaveDia, formatarDataCurta, formatarDataExtenso, formatarPeso, pesoParaInput } from './formatar'
+import {
+  chaveDia,
+  formatarDataCurta,
+  formatarDataExtenso,
+  formatarPeso,
+  limparNome,
+  pesoParaInput,
+} from './formatar'
 
 // O gráfico (Chart.js) só é descarregado quando há medições para mostrar
 const GraficoMedicoes = lazy(() => import('./GraficoMedicoes'))
@@ -37,7 +48,7 @@ async function buscarDados() {
   }
 }
 
-export default function Perfil({ email, utilizadorId }) {
+export default function Perfil({ email, nome, utilizadorId }) {
   const [dados, setDados] = useState(null) // null = a carregar
   const [erro, setErro] = useState('')
   // undefined = fechado; null = nova medição; objeto = editar essa medição
@@ -84,11 +95,12 @@ export default function Perfil({ email, utilizadorId }) {
       {erro && <p className="erro">{erro}</p>}
 
       {dados === null ? (
-        !erro && <p className="subtitulo">A carregar...</p>
+        !erro && <Esqueleto cartoes={3} linhas={3} />
       ) : (
         <>
           <DadosPessoais
             email={email}
+            nome={nome}
             perfil={dados.perfil}
             utilizadorId={utilizadorId}
             onGuardado={perfilGuardado}
@@ -96,19 +108,18 @@ export default function Perfil({ email, utilizadorId }) {
 
           <div className="cabecalho-seccao">
             <h2 className="titulo-seccao">Medições corporais</h2>
-            <button className="botao-pequeno" onClick={() => setMedicaoAberta(null)}>
-              + Nova medição
+            <button className="botao-pequeno com-icone" onClick={() => setMedicaoAberta(null)}>
+              <Plus size={16} />
+              Nova medição
             </button>
           </div>
 
           {dados.medicoes.length === 0 ? (
-            <div className="cartao vazio">
-              <p className="vazio-icone">📏</p>
-              <p>Ainda não tens medições.</p>
-              <p className="subtitulo sem-margem">
-                Regista os valores do relatório InBody da nutricionista para acompanhares a evolução.
-              </p>
-            </div>
+            <EstadoVazio
+              icone={Ruler}
+              titulo="Ainda não tens medições"
+              texto="Regista os valores do relatório InBody da nutricionista para acompanhares a evolução."
+            />
           ) : (
             <>
               <UltimaMedicao
@@ -116,13 +127,7 @@ export default function Perfil({ email, utilizadorId }) {
                 alturaCm={dados.perfil.altura_cm}
                 onIndicarAltura={indicarAltura}
               />
-              <Suspense
-                fallback={
-                  <div className="cartao">
-                    <p className="subtitulo sem-margem">A carregar o gráfico...</p>
-                  </div>
-                }
-              >
+              <Suspense fallback={<Esqueleto cartoes={1} linhas={4} />}>
                 <GraficoMedicoes medicoes={dados.medicoes} alturaCm={dados.perfil.altura_cm} />
               </Suspense>
               <ListaMedicoes medicoes={dados.medicoes} onAbrir={setMedicaoAberta} />
@@ -133,7 +138,8 @@ export default function Perfil({ email, utilizadorId }) {
         </>
       )}
 
-      <button className="botao-secundario botao-sair" onClick={() => supabase.auth.signOut()}>
+      <button className="botao-secundario botao-sair com-icone" onClick={() => supabase.auth.signOut()}>
+        <LogOut size={18} />
         Sair
       </button>
 
@@ -152,30 +158,45 @@ export default function Perfil({ email, utilizadorId }) {
 
 // ---------- Dados pessoais ----------
 
-function DadosPessoais({ email, perfil, utilizadorId, onGuardado }) {
+function DadosPessoais({ email, nome, perfil, utilizadorId, onGuardado }) {
   const [hoje] = useState(() => new Date())
+  const [textoNome, setTextoNome] = useState(nome ?? '')
   const [nascimento, setNascimento] = useState(perfil.data_nascimento ?? '')
   const [altura, setAltura] = useState(perfil.altura_cm ? pesoParaInput(perfil.altura_cm) : '')
-  const [estado, setEstado] = useState('') // '' | 'A gravar...' | 'Gravado'
+  const [aGravar, setAGravar] = useState(false)
   const [erro, setErro] = useState('')
   const pedidos = useRef(0)
+  const avisar = useAvisos()
 
   // Grava só os campos indicados; o upsert cria a linha do perfil se ainda não existir
   async function guardar(campos) {
     const id = ++pedidos.current
     setErro('')
-    setEstado('A gravar...')
+    setAGravar(true)
     const { error } = await supabase
       .from('perfil')
       .upsert({ user_id: utilizadorId, ...campos }, { onConflict: 'user_id' })
     if (id !== pedidos.current) return
+    setAGravar(false)
     if (error) {
-      setEstado('')
       setErro(error.message)
       return
     }
-    setEstado('Gravado')
+    avisar('Gravado')
     onGuardado(campos)
+  }
+
+  // O nome fica nos dados da conta (user_metadata), não numa tabela: serve para a saudação do início
+  async function guardarNome() {
+    const valor = limparNome(textoNome)
+    setTextoNome(valor)
+    if (valor === (nome ?? '')) return
+    setErro('')
+    setAGravar(true)
+    const { error } = await supabase.auth.updateUser({ data: { nome: valor || null } })
+    setAGravar(false)
+    if (error) return setErro(error.message)
+    avisar('Gravado')
   }
 
   function guardarNascimento() {
@@ -207,11 +228,25 @@ function DadosPessoais({ email, perfil, utilizadorId, onGuardado }) {
     <div className="cartao dados-pessoais">
       <div className="notas-topo">
         <h2>Dados pessoais</h2>
-        {estado && <span className="notas-estado">{estado}</span>}
+        {aGravar && <span className="notas-estado">A gravar...</span>}
       </div>
 
       <p className="subtitulo perfil-rotulo">Email</p>
       <p className="perfil-valor">{email}</p>
+
+      <label className="campo">
+        <span className="campo-rotulo">Nome</span>
+        <input
+          type="text"
+          autoComplete="given-name"
+          placeholder="Como queres ser tratado no início"
+          maxLength={40}
+          value={textoNome}
+          onChange={(e) => setTextoNome(e.target.value)}
+          onBlur={guardarNome}
+          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        />
+      </label>
 
       <div className="campos-perfil">
         <label className="campo">
@@ -223,10 +258,7 @@ function DadosPessoais({ email, perfil, utilizadorId, onGuardado }) {
             type="date"
             value={nascimento}
             max={chaveDia(hoje)}
-            onChange={(e) => {
-              setNascimento(e.target.value)
-              setEstado('')
-            }}
+            onChange={(e) => setNascimento(e.target.value)}
             onBlur={guardarNascimento}
           />
         </label>
@@ -239,10 +271,7 @@ function DadosPessoais({ email, perfil, utilizadorId, onGuardado }) {
             inputMode="decimal"
             placeholder="Ex: 175"
             value={altura}
-            onChange={(e) => {
-              setAltura(e.target.value)
-              setEstado('')
-            }}
+            onChange={(e) => setAltura(e.target.value)}
             onBlur={guardarAltura}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           />
@@ -317,8 +346,9 @@ function UltimaMedicao({ medicoes, alturaCm, onIndicarAltura }) {
         <div className="valor-medicao">
           <span className="valor-medicao-rotulo">IMC</span>
           {imc === null ? (
-            <button className="botao-link" onClick={onIndicarAltura}>
-              Indicar a altura ›
+            <button className="botao-link com-icone" onClick={onIndicarAltura}>
+              Indicar a altura
+              <ChevronRight size={16} />
             </button>
           ) : (
             <>
@@ -375,7 +405,7 @@ function ListaMedicoes({ medicoes, onAbrir }) {
               .filter(Boolean)
               .join(' · ')}
           </span>
-          <span className="seta">›</span>
+          <ChevronRight size={20} className="seta" aria-hidden="true" />
         </button>
       ))}
     </div>
@@ -388,6 +418,7 @@ function Exportar() {
   const [aExportar, setAExportar] = useState(false)
   const [mensagem, setMensagem] = useState('')
   const [erro, setErro] = useState('')
+  const avisar = useAvisos()
 
   async function exportar() {
     setAExportar(true)
@@ -409,6 +440,7 @@ function Exportar() {
     setTimeout(() => URL.revokeObjectURL(url), 10000)
 
     const { tabelas } = resultado.dados
+    avisar('Ficheiro exportado')
     setMensagem(
       `${nome}: ${tabelas.treinos.length} treinos, ${tabelas.series.length} séries, ` +
         `${tabelas.exercicios.length} exercícios e ${tabelas.medicoes.length} medições.`
@@ -422,10 +454,11 @@ function Exportar() {
         Descarrega um ficheiro JSON com todos os teus dados: perfil, exercícios, treinos, séries e
         medições.
       </p>
-      <button className="botao-secundario sem-margem-topo" onClick={exportar} disabled={aExportar}>
+      <button className="botao-secundario sem-margem-topo com-icone" onClick={exportar} disabled={aExportar}>
+        <Download size={18} />
         {aExportar ? 'A preparar o ficheiro...' : 'Exportar os meus dados'}
       </button>
-      {mensagem && <p className="nota">✓ {mensagem}</p>}
+      {mensagem && <p className="nota">{mensagem}</p>}
       {erro && <p className="erro">{erro}</p>}
     </div>
   )

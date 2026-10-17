@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
+import { useAvisos } from './avisos'
+import Confirmar from './Confirmar'
+import Janela from './Janela'
 import { CAMPOS_MEDICAO, validarMedicao } from './corpo'
 import { chaveDia, formatarDataExtenso, pesoParaInput } from './formatar'
 import { dataDeChave } from './estatisticas'
@@ -21,14 +25,7 @@ export default function FormMedicao({ medicao, onGuardada, onApagada, onFechar }
   const [erro, setErro] = useState('')
   const [aGravar, setAGravar] = useState(false)
   const [confirmarApagar, setConfirmarApagar] = useState(false)
-
-  useEffect(() => {
-    function teclaPremida(e) {
-      if (e.key === 'Escape') onFechar()
-    }
-    window.addEventListener('keydown', teclaPremida)
-    return () => window.removeEventListener('keydown', teclaPremida)
-  }, [onFechar])
+  const avisar = useAvisos()
 
   function mudar(campo, valor) {
     setValores((atuais) => ({ ...atuais, [campo]: valor }))
@@ -53,6 +50,7 @@ export default function FormMedicao({ medicao, onGuardada, onApagada, onFechar }
     const { data, error } = await consulta.select('*').single()
     setAGravar(false)
     if (error) return setErro(error.message)
+    avisar(medicao ? 'Medição atualizada' : 'Medição guardada')
     onGuardada(data)
   }
 
@@ -62,25 +60,13 @@ export default function FormMedicao({ medicao, onGuardada, onApagada, onFechar }
     const { error } = await supabase.from('medicoes').delete().eq('id', medicao.id)
     setAGravar(false)
     if (error) return setErro(error.message)
+    avisar('Medição apagada')
     onApagada(medicao.id)
   }
 
   return (
-    <div className="sheet-fundo" onClick={onFechar}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={medicao ? 'Editar medição' : 'Nova medição'}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-topo">
-          <h2>{medicao ? 'Editar medição' : 'Nova medição'}</h2>
-          <button className="botao-fechar" onClick={onFechar} aria-label="Fechar">
-            ×
-          </button>
-        </div>
-
+    <>
+    <Janela titulo={medicao ? 'Editar medição' : 'Nova medição'} onFechar={onFechar}>
         <form className="sheet-lista form-medicao" onSubmit={guardar} noValidate>
           <Campo id="data" rotulo="Data" erro={erros.data} obrigatorio>
             <input
@@ -120,28 +106,31 @@ export default function FormMedicao({ medicao, onGuardada, onApagada, onFechar }
             {aGravar ? 'A gravar...' : medicao ? 'Guardar alterações' : 'Guardar medição'}
           </button>
 
-          {medicao &&
-            (confirmarApagar ? (
-              <div className="confirmacao-inline">
-                <p>
-                  Apagar a medição de {formatarDataExtenso(dataDeChave(medicao.data)).toLowerCase()}?
-                  Não é possível desfazer.
-                </p>
-                <button type="button" className="botao-perigo-cheio" onClick={apagar} disabled={aGravar}>
-                  Apagar medição
-                </button>
-                <button type="button" className="botao-secundario" onClick={() => setConfirmarApagar(false)}>
-                  Cancelar
-                </button>
-              </div>
-            ) : (
-              <button type="button" className="botao-perigo" onClick={() => setConfirmarApagar(true)}>
-                Apagar medição
-              </button>
-            ))}
+          {medicao && (
+            <button type="button" className="botao-perigo com-icone" onClick={() => setConfirmarApagar(true)}>
+              <Trash2 size={18} />
+              Apagar medição
+            </button>
+          )}
         </form>
-      </div>
-    </div>
+    </Janela>
+
+      {confirmarApagar && (
+        <Confirmar
+          titulo="Apagar medição?"
+          textoConfirmar="Apagar medição"
+          aProcessar={aGravar}
+          onConfirmar={apagar}
+          onCancelar={() => setConfirmarApagar(false)}
+        >
+          <p>
+            A medição de {formatarDataExtenso(dataDeChave(medicao.data)).toLowerCase()} será apagada. Não é possível
+            desfazer.
+          </p>
+          {erro && <p className="erro">{erro}</p>}
+        </Confirmar>
+      )}
+    </>
   )
 }
 

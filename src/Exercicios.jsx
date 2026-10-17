@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronRight, CircleCheck, ListChecks, Plus, Search } from 'lucide-react'
 import { supabase } from './supabase'
+import { useAvisos } from './avisos'
 import { buscarExercicios, buscarTudo, SELECT_EXERCICIO } from './consultas'
 import DetalheExercicio from './DetalheExercicio'
+import Esqueleto from './Esqueleto'
+import EstadoVazio from './EstadoVazio'
 import { estatisticasPorExercicio } from './estatisticas'
 import { formatarDataCurta, limparNome, nomesIguais, normalizarTexto } from './formatar'
 import { nomeMusculo, ordenarMusculos } from './musculos'
@@ -117,17 +121,22 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
             onCancelar={() => setACriar(false)}
           />
         ) : (
-          <button className="botao-secundario botao-novo" onClick={() => setACriar(true)}>
-            + Novo exercício
+          <button className="botao-secundario botao-novo com-icone" onClick={() => setACriar(true)}>
+            <Plus size={18} />
+            Novo exercício
           </button>
         )}
 
-        <input
-          type="search"
-          placeholder="Pesquisar exercício"
-          value={pesquisa}
-          onChange={(e) => setPesquisa(e.target.value)}
-        />
+        <div className="pesquisa">
+          <Search size={18} className="pesquisa-icone" aria-hidden="true" />
+          <input
+            type="search"
+            placeholder="Pesquisar exercício"
+            value={pesquisa}
+            onChange={(e) => setPesquisa(e.target.value)}
+            aria-label="Pesquisar exercício"
+          />
+        </div>
 
         <div className="filtros">
           <button
@@ -147,17 +156,23 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
         {erro && <p className="erro">{erro}</p>}
 
         {exercicios === null ? (
-          <p className="subtitulo">A carregar...</p>
+          <Esqueleto cartoes={5} linhas={2} />
         ) : lista.length === 0 ? (
-          <p className="subtitulo">
-            Ainda não tens exercícios. Cria o primeiro aqui ou durante um treino.
-          </p>
+          <EstadoVazio
+            icone={ListChecks}
+            titulo="Ainda não tens exercícios"
+            texto="Cria o primeiro aqui ou durante um treino, ao adicionar um bloco."
+          />
         ) : filtrados.length === 0 ? (
-          <p className="subtitulo">
-            {soSemMusculos && !termo
-              ? 'Todos os exercícios têm músculos associados. 👌'
-              : 'Nenhum exercício encontrado.'}
-          </p>
+          soSemMusculos && !termo ? (
+            <EstadoVazio
+              icone={CircleCheck}
+              titulo="Tudo completo"
+              texto="Todos os exercícios têm músculos associados."
+            />
+          ) : (
+            <p className="subtitulo">Nenhum exercício encontrado.</p>
+          )
         ) : (
           <div className="cartao lista-exercicios">
             {filtrados.map((exercicio) => (
@@ -190,13 +205,16 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
 function LinhaExercicio({ exercicio, estatisticas, onAbrir }) {
   return (
     <button className="linha-exercicio" onClick={onAbrir}>
-      <span className="linha-exercicio-nome">{exercicio.nome}</span>
-      <EtiquetasMusculos musculos={exercicio.exercicio_musculos} />
-      <span className="linha-exercicio-info">
-        {estatisticas
-          ? `${estatisticas.numTreinos} ${estatisticas.numTreinos === 1 ? 'treino' : 'treinos'} · última vez a ${formatarDataCurta(estatisticas.ultima)}`
-          : 'Ainda não foi feito'}
+      <span className="linha-exercicio-textos">
+        <span className="linha-exercicio-nome">{exercicio.nome}</span>
+        <EtiquetasMusculos musculos={exercicio.exercicio_musculos} />
+        <span className="linha-exercicio-info">
+          {estatisticas
+            ? `${estatisticas.numTreinos} ${estatisticas.numTreinos === 1 ? 'treino' : 'treinos'} · última vez a ${formatarDataCurta(estatisticas.ultima)}`
+            : 'Ainda não foi feito'}
+        </span>
       </span>
+      <ChevronRight size={20} className="seta" aria-hidden="true" />
     </button>
   )
 }
@@ -228,6 +246,7 @@ function NovoExercicio({ exercicios, onCriado, onAbrir, onCancelar }) {
   const [aGravar, setAGravar] = useState(false)
   const [erro, setErro] = useState('')
   const [duplicado, setDuplicado] = useState(null)
+  const avisar = useAvisos()
 
   async function criar(e) {
     e.preventDefault()
@@ -251,6 +270,7 @@ function NovoExercicio({ exercicios, onCriado, onAbrir, onCancelar }) {
         error.code === '23505' ? `Já existe um exercício chamado «${limpo}».` : error.message
       )
     }
+    avisar('Exercício criado')
     onCriado(data)
   }
 

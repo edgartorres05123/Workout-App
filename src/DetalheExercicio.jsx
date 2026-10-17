@@ -1,8 +1,12 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Merge, Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
+import { useAvisos } from './avisos'
 import { buscarTreino, buscarTudo } from './consultas'
+import Confirmar from './Confirmar'
 import DetalheTreino from './DetalheTreino'
 import EscolherExercicio from './EscolherExercicio'
+import Esqueleto from './Esqueleto'
 import Numero from './Numero'
 import { resumoExercicio, sessoesPorTreino } from './estatisticas'
 import {
@@ -53,12 +57,7 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
   const [sessoesVisiveis, setSessoesVisiveis] = useState(SESSOES_POR_PAGINA)
   const [treinoAberto, setTreinoAberto] = useState(null)
   const scrollDoExercicio = useRef(0)
-  const refPainel = useRef(null)
-
-  // As confirmações aparecem no fundo da página: mostra-as quando abrem
-  useEffect(() => {
-    if (painel) refPainel.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [painel])
+  const avisar = useAvisos()
 
   useEffect(() => {
     let ativo = true
@@ -137,6 +136,7 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
     const { error: erroApagar } = await supabase.from('exercicios').delete().eq('id', exercicio.id)
     if (erroApagar) return falhar(erroApagar.message)
 
+    avisar(`Juntado com «${destino.nome}»`)
     onJuntado(destino.id)
   }
 
@@ -165,6 +165,7 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
       if (error.code === '23503') return setPainel({ tipo: 'bloqueado', total: null })
       return setErro(error.message)
     }
+    avisar('Exercício apagado')
     onApagado()
   }
 
@@ -187,11 +188,12 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
   const sessoes = series ? sessoesPorTreino(series) : []
 
   return (
-    <div>
+    <div className="vista-detalhe">
       <div hidden={Boolean(treinoAberto)}>
         <div className="detalhe-topo">
-          <button className="botao-voltar" onClick={onVoltar}>
-            ‹ Voltar
+          <button className="botao-voltar com-icone" onClick={onVoltar}>
+            <ChevronLeft size={20} />
+            Voltar
           </button>
         </div>
 
@@ -210,7 +212,7 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
         <div className="cartao">
           <h2>Resumo</h2>
           {series === null ? (
-            <p className="subtitulo sem-margem">A carregar...</p>
+            <Esqueleto cartoes={1} linhas={3} />
           ) : !resumo ? (
             <p className="subtitulo sem-margem">Ainda não há séries deste exercício em treinos terminados.</p>
           ) : (
@@ -235,13 +237,7 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
         </div>
 
         {resumo && (
-          <Suspense
-            fallback={
-              <div className="cartao">
-                <p className="subtitulo sem-margem">A carregar o gráfico...</p>
-              </div>
-            }
-          >
+          <Suspense fallback={<Esqueleto cartoes={2} linhas={4} />}>
             <EvolucaoExercicio series={series} onAbrirTreino={abrirTreino} />
           </Suspense>
         )}
@@ -253,7 +249,10 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
               {sessoes.slice(0, sessoesVisiveis).map((sessao) => (
                 <li key={sessao.treino.id} className="sessao">
                   <button className="botao-sessao" onClick={() => abrirTreino(sessao.treino.id)}>
-                    <span className="sessao-data">{formatarDataExtenso(sessao.treino.data)}</span>
+                    <span className="sessao-data com-icone">
+                      {formatarDataExtenso(sessao.treino.data)}
+                      <ChevronRight size={14} aria-hidden="true" />
+                    </span>
                     <span className="sessao-series">
                       {sessao.series.map((s, i) => (
                         <span key={s.id} className={s.aquecimento ? 'aquecimento' : undefined}>
@@ -281,12 +280,23 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
 
         {erro && <p className="erro">{erro}</p>}
 
-        {painel ? (
+        <div className="acoes-exercicio">
+          <button className="botao-secundario com-icone" onClick={() => setAEscolherDestino(true)}>
+            <Merge size={18} />
+            Juntar com outro exercício
+          </button>
+          <button className="botao-perigo com-icone" onClick={pedirApagar}>
+            <Trash2 size={18} />
+            Apagar exercício
+          </button>
+        </div>
+
+        {painel && (
           <Painel
-            refPainel={refPainel}
             painel={painel}
             exercicio={exercicio}
             aProcessar={aProcessar}
+            erro={erro}
             onConfirmarJuntar={confirmarJuntar}
             onConfirmarApagar={confirmarApagar}
             onEscolherDestino={() => {
@@ -295,15 +305,6 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
             }}
             onCancelar={() => setPainel(null)}
           />
-        ) : (
-          <div className="acoes-exercicio">
-            <button className="botao-secundario" onClick={() => setAEscolherDestino(true)}>
-              Juntar com outro exercício
-            </button>
-            <button className="botao-perigo" onClick={pedirApagar}>
-              Apagar exercício
-            </button>
-          </div>
         )}
 
         {aEscolherDestino && (
@@ -335,6 +336,7 @@ function CampoNome({ exercicio, todos, onAlterar, onJuntar }) {
   const [aGravar, setAGravar] = useState(false)
   const [erro, setErro] = useState('')
   const [duplicado, setDuplicado] = useState(null)
+  const avisar = useAvisos()
 
   async function guardar(e) {
     e.preventDefault()
@@ -355,6 +357,7 @@ function CampoNome({ exercicio, todos, onAlterar, onJuntar }) {
         error.code === '23505' ? `Já existe um exercício chamado «${novo}».` : error.message
       )
     }
+    avisar('Nome gravado')
     onAlterar((ex) => ({ ...ex, nome: novo }))
   }
 
@@ -455,47 +458,53 @@ function Musculos({ exercicio, onAlterar }) {
   )
 }
 
+// As três confirmações do exercício (juntar, não pode ser apagado, apagar), na janela Confirmar
 function Painel({
-  refPainel,
   painel,
   exercicio,
   aProcessar,
+  erro,
   onConfirmarJuntar,
   onConfirmarApagar,
   onEscolherDestino,
   onCancelar,
 }) {
+  const mensagemErro = erro && <p className="erro">{erro}</p>
+
   if (painel.tipo === 'juntar') {
     const { destino, total } = painel
     return (
-      <div className="cartao confirmacao" ref={refPainel}>
-        <p>
-          Juntar «{exercicio.nome}» com «{destino.nome}»?
-        </p>
+      <Confirmar
+        titulo={`Juntar com «${destino.nome}»?`}
+        textoConfirmar="Juntar"
+        aProcessar={aProcessar}
+        onConfirmar={onConfirmarJuntar}
+        onCancelar={onCancelar}
+      >
         <ul className="explicacao">
           <li>
-            {total === 1 ? 'A série' : `As ${total} séries`} de «{exercicio.nome}» passam para «
-            {destino.nome}».
+            {total === 1 ? 'A série' : `As ${total} séries`} de «{exercicio.nome}» passam para «{destino.nome}».
           </li>
           <li>Nos blocos dos treinos, «{exercicio.nome}» é substituído por «{destino.nome}».</li>
           <li>Os músculos que «{destino.nome}» ainda não tem são copiados.</li>
           <li>«{exercicio.nome}» é apagado. Não é possível desfazer.</li>
         </ul>
-        <button onClick={onConfirmarJuntar} disabled={aProcessar}>
-          {aProcessar ? 'A juntar...' : 'Juntar'}
-        </button>
-        <button className="botao-secundario" onClick={onCancelar}>
-          Cancelar
-        </button>
-      </div>
+        {mensagemErro}
+      </Confirmar>
     )
   }
 
   if (painel.tipo === 'bloqueado') {
     return (
-      <div className="cartao confirmacao" ref={refPainel}>
+      <Confirmar
+        titulo="Não pode ser apagado"
+        textoConfirmar="Juntar com outro exercício"
+        perigo={false}
+        onConfirmar={onEscolherDestino}
+        onCancelar={onCancelar}
+      >
         <p>
-          Este exercício não pode ser apagado porque tem{' '}
+          Este exercício tem{' '}
           {painel.total === null
             ? 'séries registadas'
             : painel.total === 1
@@ -503,27 +512,24 @@ function Painel({
               : `${painel.total} séries registadas`}
           . Se é igual a outro exercício, junta-os: as séries passam para o outro e este é apagado.
         </p>
-        <button onClick={onEscolherDestino}>Juntar com outro exercício</button>
-        <button className="botao-secundario" onClick={onCancelar}>
-          Cancelar
-        </button>
-      </div>
+      </Confirmar>
     )
   }
 
   return (
-    <div className="cartao confirmacao" ref={refPainel}>
+    <Confirmar
+      titulo={`Apagar «${exercicio.nome}»?`}
+      textoConfirmar="Apagar exercício"
+      aProcessar={aProcessar}
+      onConfirmar={onConfirmarApagar}
+      onCancelar={onCancelar}
+    >
       <p>
-        Apagar «{exercicio.nome}»? Não tem séries registadas.
+        Não tem séries registadas.
         {painel.blocos > 0 &&
           ` Sai também ${painel.blocos === 1 ? 'do bloco onde aparece' : `dos ${painel.blocos} blocos onde aparece`}, sem séries feitas.`}
       </p>
-      <button className="botao-perigo-cheio" onClick={onConfirmarApagar} disabled={aProcessar}>
-        {aProcessar ? 'A apagar...' : 'Apagar exercício'}
-      </button>
-      <button className="botao-secundario" onClick={onCancelar}>
-        Cancelar
-      </button>
-    </div>
+      {mensagemErro}
+    </Confirmar>
   )
 }

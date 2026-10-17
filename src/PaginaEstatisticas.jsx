@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChartColumn, ChevronRight, Dumbbell, Flame, Timer, Trophy, TriangleAlert } from 'lucide-react'
 import { buscarExercicios, buscarTreino, buscarTreinosTerminados } from './consultas'
 import DetalheExercicio from './DetalheExercicio'
 import DetalheTreino from './DetalheTreino'
+import Esqueleto from './Esqueleto'
+import EstadoVazio from './EstadoVazio'
+import Janela from './Janela'
 import { CORES } from './cores'
 import Grafico from './Grafico'
 import Pilulas from './Pilulas'
@@ -126,15 +130,13 @@ export default function PaginaEstatisticas({ onIrPara }) {
         {erro && <p className="erro">{erro}</p>}
 
         {dados === null ? (
-          !erro && <Carregando />
+          !erro && <Esqueleto numeros={3} cartoes={3} linhas={3} />
         ) : dados.treinos.length === 0 ? (
-          <div className="cartao vazio">
-            <p className="vazio-icone">📊</p>
-            <p>Ainda não há treinos terminados.</p>
-            <p className="subtitulo sem-margem">
-              Termina o primeiro treino e as tuas estatísticas aparecem aqui. 💪
-            </p>
-          </div>
+          <EstadoVazio
+            icone={ChartColumn}
+            titulo="Ainda não há treinos terminados"
+            texto="Termina o primeiro treino e as tuas estatísticas aparecem aqui."
+          />
         ) : (
           <>
             <SeccaoResumo treinos={dados.treinos} agora={agora} />
@@ -199,15 +201,6 @@ export default function PaginaEstatisticas({ onIrPara }) {
   )
 }
 
-function Carregando() {
-  return (
-    <div className="carregando" role="status">
-      <span className="carregando-roda" />
-      A calcular as estatísticas...
-    </div>
-  )
-}
-
 // ---------- a) Resumo ----------
 
 function SeccaoResumo({ treinos, agora }) {
@@ -258,7 +251,7 @@ function SeccaoResumo({ treinos, agora }) {
         y: {
           beginAtZero: true,
           border: { display: false },
-          grid: { color: CORES.borda },
+          grid: { color: CORES.grelha },
           ticks: {
             maxTicksLimit: 5,
             precision: 0,
@@ -412,20 +405,7 @@ function Indicador({ valor, rotulo }) {
 
 function TreinosDoDia({ dia, onAbrir, onFechar }) {
   return (
-    <div className="sheet-fundo" onClick={onFechar}>
-      <div
-        className="sheet sheet-baixa"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Treinos do dia"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-topo">
-          <h2>{formatarDataExtenso(dia.treinos[0].data)}</h2>
-          <button className="botao-fechar" onClick={onFechar} aria-label="Fechar">
-            ×
-          </button>
-        </div>
+    <Janela titulo={formatarDataExtenso(dia.treinos[0].data)} onFechar={onFechar} baixa>
         <ul className="lista">
           {dia.treinos.map((treino) => (
             <li key={treino.id}>
@@ -436,13 +416,12 @@ function TreinosDoDia({ dia, onAbrir, onFechar }) {
                     {formatarMinutos(treino.duracao_min)} · {abreviarNumero(calcularVolume(treino.series))} kg
                   </span>
                 </span>
-                <span className="seta">›</span>
+                <ChevronRight size={20} className="seta" aria-hidden="true" />
               </button>
             </li>
           ))}
         </ul>
-      </div>
-    </div>
+    </Janela>
   )
 }
 
@@ -457,6 +436,7 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
   if (maiorPeso) {
     cartoes.push({
       id: 'peso',
+      icone: Dumbbell,
       rotulo: 'Maior peso',
       valor: `${formatarPeso(maiorPeso.serie.peso_kg)} kg`,
       detalhe: `${nomes.get(maiorPeso.serie.exercicio_id) ?? '—'} · ${maiorPeso.serie.repeticoes} reps`,
@@ -467,6 +447,7 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
   if (maisReps) {
     cartoes.push({
       id: 'reps',
+      icone: Trophy,
       rotulo: 'Mais repetições',
       valor: `${maisReps.serie.repeticoes} reps`,
       detalhe: `${nomes.get(maisReps.serie.exercicio_id) ?? '—'} · ${formatarPeso(maisReps.serie.peso_kg)} kg`,
@@ -477,6 +458,7 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
   if (maiorVolume?.valor > 0) {
     cartoes.push({
       id: 'volume',
+      icone: Flame,
       rotulo: 'Maior volume num treino',
       valor: `${abreviarNumero(maiorVolume.valor)} kg`,
       detalhe: `${maiorVolume.treino.series.filter((s) => !s.aquecimento).length} séries`,
@@ -487,6 +469,7 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
   if (maisLongo?.valor > 0) {
     cartoes.push({
       id: 'duracao',
+      icone: Timer,
       rotulo: 'Treino mais longo',
       valor: formatarMinutos(maisLongo.valor),
       detalhe: `${abreviarNumero(calcularVolume(maisLongo.treino.series))} kg de volume`,
@@ -497,17 +480,26 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
 
   return (
     <section className="seccao">
-      <h2 className="titulo-seccao">Recordes</h2>
+      <h2 className="titulo-seccao com-icone">
+        <Trophy size={20} aria-hidden="true" />
+        Recordes
+      </h2>
       {cartoes.length === 0 ? (
         <p className="subtitulo">Ainda não há recordes. Regista séries com peso para os ver aqui.</p>
       ) : (
         <div className="recordes">
           {cartoes.map((c) => (
             <button key={c.id} className="cartao cartao-recorde" onClick={c.abrir}>
-              <span className="cartao-recorde-rotulo">🏆 {c.rotulo}</span>
+              <span className="cartao-recorde-rotulo com-icone">
+                <c.icone size={16} aria-hidden="true" />
+                {c.rotulo}
+              </span>
               <span className="cartao-recorde-valor">{c.valor}</span>
               <span className="cartao-recorde-detalhe">{c.detalhe}</span>
-              <span className="cartao-recorde-data">{formatarDataCurta(c.data)} ›</span>
+              <span className="cartao-recorde-data com-icone">
+                {formatarDataCurta(c.data)}
+                <ChevronRight size={14} aria-hidden="true" />
+              </span>
             </button>
           ))}
         </div>
@@ -569,8 +561,8 @@ function SeccaoMusculos({ treinos, exercicios, agora, onCompletar }) {
         r: {
           beginAtZero: true,
           ticks: { display: false },
-          grid: { color: CORES.borda },
-          angleLines: { color: CORES.borda },
+          grid: { color: CORES.grelha },
+          angleLines: { color: CORES.grelha },
           pointLabels: { color: CORES.textoSuave, font: { size: 11 } },
         },
       },
@@ -614,13 +606,15 @@ function SeccaoMusculos({ treinos, exercicios, agora, onCompletar }) {
 
         {semMusculos.size > 0 && (
           <div className="aviso aviso-caixa">
+            <TriangleAlert size={18} className="aviso-caixa-icone" aria-hidden="true" />
             <p>
               {semMusculos.size === 1
                 ? '1 exercício sem músculos associados teve volume neste período e não entra nestas contas.'
                 : `${semMusculos.size} exercícios sem músculos associados tiveram volume neste período e não entram nestas contas.`}
             </p>
-            <button className="botao-link" onClick={onCompletar}>
-              Completar no separador Exercícios ›
+            <button className="botao-link com-icone" onClick={onCompletar}>
+              Completar no separador Exercícios
+              <ChevronRight size={16} />
             </button>
           </div>
         )}

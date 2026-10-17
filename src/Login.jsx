@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Dumbbell } from 'lucide-react'
 import { supabase } from './supabase'
 
 export default function Login() {
@@ -23,7 +24,10 @@ export default function Login() {
   }
 
   return (
-    <div>
+    <div className="login">
+      <span className="login-logo" aria-hidden="true">
+        <Dumbbell size={36} strokeWidth={2.4} />
+      </span>
       <h1>Workout App</h1>
       <p className="subtitulo">
         {modo === 'entrar' ? 'Entra na tua conta' : 'Cria a tua conta'}

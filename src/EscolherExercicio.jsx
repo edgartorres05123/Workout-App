@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Check, Plus, Search } from 'lucide-react'
 import { supabase } from './supabase'
+import Esqueleto from './Esqueleto'
+import Janela from './Janela'
 import { normalizarTexto } from './formatar'
 import { nomeMusculo, ordenarMusculos } from './musculos'
 
@@ -37,14 +40,6 @@ export default function EscolherExercicio({
     }
   }, [])
 
-  useEffect(() => {
-    function teclaPremida(e) {
-      if (e.key === 'Escape') onFechar()
-    }
-    window.addEventListener('keydown', teclaPremida)
-    return () => window.removeEventListener('keydown', teclaPremida)
-  }, [onFechar])
-
   const nomeNovo = pesquisa.trim().replace(/\s+/g, ' ')
   const lista = (exercicios ?? []).filter((e) => !excluir.includes(e.id))
   const filtrados = lista.filter((e) => normalizarTexto(e.nome).includes(normalizarTexto(nomeNovo)))
@@ -72,22 +67,9 @@ export default function EscolherExercicio({
   }
 
   return (
-    <div className="sheet-fundo" onClick={onFechar}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={titulo}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-topo">
-          <h2>{titulo}</h2>
-          <button className="botao-fechar" onClick={onFechar} aria-label="Fechar">
-            ×
-          </button>
-        </div>
-
-        <form onSubmit={submeter}>
+    <Janela titulo={titulo} onFechar={onFechar}>
+        <form onSubmit={submeter} className="pesquisa">
+          <Search size={18} className="pesquisa-icone" aria-hidden="true" />
           <input
             type="search"
             placeholder={permitirCriar ? 'Pesquisar ou criar exercício' : 'Pesquisar exercício'}
@@ -101,13 +83,14 @@ export default function EscolherExercicio({
         {erro && <p className="erro">{erro}</p>}
 
         {podeCriar && (
-          <button className="botao-criar" onClick={criar} disabled={aCriar}>
-            {aCriar ? 'A criar...' : `+ Criar «${nomeNovo}»`}
+          <button className="botao-criar com-icone" onClick={criar} disabled={aCriar}>
+            <Plus size={18} />
+            {aCriar ? 'A criar...' : `Criar «${nomeNovo}»`}
           </button>
         )}
 
         <div className="sheet-lista">
-          {exercicios === null && <p className="subtitulo">A carregar...</p>}
+          {exercicios === null && <Esqueleto cartoes={4} linhas={1} />}
 
           {exercicios !== null && lista.length === 0 && !nomeNovo && (
             <p className="subtitulo">
@@ -137,14 +120,17 @@ export default function EscolherExercicio({
                         </span>
                       )}
                     </span>
-                    {jaEscolhidos.includes(exercicio.id) && <span className="ja-escolhido">✓</span>}
+                    {jaEscolhidos.includes(exercicio.id) && (
+                      <span className="ja-escolhido" aria-label="Já escolhido">
+                        <Check size={18} />
+                      </span>
+                    )}
                   </button>
                 </li>
               )
             })}
           </ul>
         </div>
-      </div>
-    </div>
+    </Janela>
   )
 }

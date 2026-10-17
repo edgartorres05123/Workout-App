@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Layers, Timer, Weight, X } from 'lucide-react'
 import { supabase } from './supabase'
 import { SELECT_TREINO } from './consultas'
 import DetalheTreino from './DetalheTreino'
+import Esqueleto from './Esqueleto'
+import EstadoVazio from './EstadoVazio'
 import {
   agruparPorExercicio,
   calcularVolume,
@@ -145,20 +148,27 @@ export default function Historico() {
         {dia && (
           <div className="filtro-dia">
             <span>{formatarDataExtenso(dia + 'T12:00')}</span>
-            <button onClick={() => escolherDia(dia)}>Ver todos</button>
+            <button className="com-icone" onClick={() => escolherDia(dia)}>
+              <X size={16} />
+              Ver todos
+            </button>
           </div>
         )}
 
         {erro && <p className="erro">{erro}</p>}
 
         {aCarregar ? (
-          <p className="subtitulo">A carregar...</p>
+          <Esqueleto cartoes={4} linhas={3} />
         ) : treinos.length === 0 && !erro ? (
-          <p className="subtitulo">
-            {dia
-              ? 'Não há treinos terminados neste dia.'
-              : 'Ainda não tens treinos terminados. Vai ao separador Treino e começa o primeiro! 💪'}
-          </p>
+          dia ? (
+            <p className="subtitulo">Não há treinos terminados neste dia.</p>
+          ) : (
+            <EstadoVazio
+              icone={CalendarDays}
+              titulo="Ainda não tens treinos terminados"
+              texto="Vai ao separador Treino e começa o primeiro. Vai aparecer aqui quando o terminares."
+            />
+          )
         ) : (
           agruparPorMes(treinos).map((grupo) => (
             <section key={grupo.mes}>
@@ -199,12 +209,22 @@ function CartaoTreino({ treino, onAbrir }) {
     <button className="cartao cartao-treino" onClick={onAbrir}>
       <span className="cartao-treino-topo">
         <span className="cartao-treino-data">{formatarDataExtenso(treino.data)}</span>
-        <span className="cartao-treino-hora">{formatarHora(treino.data)}</span>
+        <span className="cartao-treino-hora com-icone">
+          <Clock size={14} aria-hidden="true" />
+          {formatarHora(treino.data)}
+        </span>
       </span>
       <span className="cartao-treino-numeros">
-        <span>{formatarMinutos(treino.duracao_min)}</span>
-        <span>{formatarPeso(calcularVolume(treino.series))} kg</span>
-        <span>
+        <span className="com-icone">
+          <Timer size={15} aria-hidden="true" />
+          {formatarMinutos(treino.duracao_min)}
+        </span>
+        <span className="com-icone">
+          <Weight size={15} aria-hidden="true" />
+          {formatarPeso(calcularVolume(treino.series))} kg
+        </span>
+        <span className="com-icone">
+          <Layers size={15} aria-hidden="true" />
           {numSeries} {numSeries === 1 ? 'série' : 'séries'}
         </span>
       </span>
@@ -262,7 +282,7 @@ function Calendario({ diaSelecionado, onEscolherDia, versao }) {
           onClick={() => setMes(new Date(ano, numMes - 1, 1))}
           aria-label="Mês anterior"
         >
-          ‹
+          <ChevronLeft size={22} />
         </button>
         <span className="calendario-titulo">{titulo.charAt(0).toUpperCase() + titulo.slice(1)}</span>
         <button
@@ -271,7 +291,7 @@ function Calendario({ diaSelecionado, onEscolherDia, versao }) {
           disabled={ehMesAtual}
           aria-label="Mês seguinte"
         >
-          ›
+          <ChevronRight size={22} />
         </button>
       </div>
 

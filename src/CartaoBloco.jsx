@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Check, Ellipsis, History, Minus, Plus, Target } from 'lucide-react'
 import { supabase } from './supabase'
+import IconeBloco from './IconeBloco'
 import { estadoVoltas, letraExercicio, sugestaoVolta, validarVolta } from './blocos'
 import { formatarPeso, pesoParaInput } from './formatar'
+import { vibrar } from './movimento'
 
 // Última série deste exercício num treino anterior: de aquecimento nos blocos de aquecimento,
 // normal nos outros
@@ -59,9 +62,12 @@ export default function CartaoBloco({
   return (
     <div className={`cartao bloco bloco-${bloco.tipo}`}>
       <div className="bloco-topo">
-        <h2>{titulo}</h2>
+        <h2 className="etiqueta-bloco">
+          <IconeBloco tipo={bloco.tipo} />
+          {titulo}
+        </h2>
         <button className="botao-opcoes" onClick={onOpcoes} aria-label="Opções do bloco">
-          ⋯
+          <Ellipsis size={22} />
         </button>
       </div>
 
@@ -76,12 +82,14 @@ export default function CartaoBloco({
                 {exercicios.length > 1 && <span className="letra">{letraExercicio(i)}</span>}
                 <span className="bloco-exercicio-texto">
                   <span className="bloco-exercicio-nome">{be.exercicios?.nome ?? '—'}</span>
-                  <span className="bloco-exercicio-alvo">
+                  <span className="bloco-exercicio-alvo com-icone">
+                    <Target size={13} aria-hidden="true" />
                     Alvo: {be.reps_alvo} reps
                     {be.peso_alvo !== null && be.peso_alvo !== undefined && ` × ${formatarPeso(be.peso_alvo)} kg`}
                   </span>
                   {ultima && (
-                    <span className="bloco-exercicio-alvo">
+                    <span className="bloco-exercicio-alvo com-icone">
+                      <History size={13} aria-hidden="true" />
                       Última vez: {ultima.repeticoes} × {formatarPeso(ultima.peso_kg)} kg
                     </span>
                   )}
@@ -118,13 +126,13 @@ export default function CartaoBloco({
           disabled={bloco.voltas <= 1}
           aria-label="Menos uma volta"
         >
-          −
+          <Minus size={20} />
         </button>
-        <span>
+        <span className="numero-voltas">
           {bloco.voltas} {bloco.voltas === 1 ? 'volta' : 'voltas'}
         </span>
         <button className="botao-redondo" onClick={() => mudarVoltas(1)} aria-label="Mais uma volta">
-          +
+          <Plus size={20} />
         </button>
       </div>
 
@@ -141,6 +149,7 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
   const [editados, setEditados] = useState({}) // exercicio_id → { reps?, kg? } escritos à mão
   const [aGravar, setAGravar] = useState(false)
   const [erro, setErro] = useState('')
+  const [acabouDeMarcar, setAcabouDeMarcar] = useState(false) // para a animação do ✓
 
   function valores(be) {
     const serie = estado.series.get(be.exercicio_id)
@@ -179,6 +188,8 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
     setAGravar(false)
     if (mensagem) return setErro(mensagem)
     setEditados({})
+    setAcabouDeMarcar(true)
+    vibrar(30)
   }
 
   async function sairDoCampo(be) {
@@ -243,13 +254,14 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
         })}
       </div>
       <button
-        className={estado.feita ? 'botao-volta feita' : 'botao-volta'}
+        className={`botao-volta${estado.feita ? ' feita' : ''}${acabouDeMarcar ? ' pop' : ''}`}
         onClick={alternar}
+        onAnimationEnd={() => setAcabouDeMarcar(false)}
         disabled={aGravar}
         aria-pressed={estado.feita}
         aria-label={estado.feita ? `Desfazer a volta ${numero}` : `Marcar a volta ${numero} como feita`}
       >
-        ✓
+        <Check size={26} strokeWidth={3} />
       </button>
       {erro && <p className="erro volta-erro">{erro}</p>}
     </div>

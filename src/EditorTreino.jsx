@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Check, Flag, Layers, Plus, Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
+import { useAvisos } from './avisos'
 import CartaoBloco from './CartaoBloco'
+import Confirmar from './Confirmar'
+import EstadoVazio from './EstadoVazio'
 import NotasTreino from './NotasTreino'
 import NovoBloco from './NovoBloco'
 import Numero from './Numero'
@@ -10,6 +14,7 @@ import {
   VOLTAS_INICIAIS,
   normalizarTreino,
   numerarBlocos,
+  progressoVoltas,
   proximaOrdem,
   proximaOrdemSerie,
   reordenar,
@@ -43,6 +48,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
   const [confirmar, setConfirmar] = useState(null) // null | 'apagar' | 'vazio'
   const [aCriarBloco, setACriarBloco] = useState(false)
   const [opcoesId, setOpcoesId] = useState(null)
+  const avisar = useAvisos()
 
   const numeros = numerarBlocos(treino.blocos)
   const seriesDoBloco = (blocoId) => treino.series.filter((s) => s.bloco_id === blocoId)
@@ -65,6 +71,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     const mensagem = await guardarTreino({ duracao_min: duracao })
     setAGravar(false)
     if (mensagem) return setErro(mensagem)
+    avisar('Treino guardado')
     onTerminado(resumoTreino(treino.series, duracao))
   }
 
@@ -74,6 +81,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     const { error } = await supabase.from('treinos').delete().eq('id', treino.id)
     setAGravar(false)
     if (error) return setErro(error.message)
+    avisar(modo === 'aoVivo' ? 'Treino descartado' : 'Treino apagado')
     onApagado()
   }
 
@@ -126,6 +134,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     const { error } = await supabase.from('blocos').delete().eq('id', blocoId)
     if (error) return error.message
     setOpcoesId(null)
+    avisar('Bloco apagado')
     onAlterar((t) => ({
       ...t,
       blocos: t.blocos.filter((b) => b.id !== blocoId),
@@ -287,32 +296,33 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
   // ---------- Ecrã ----------
 
   const volume = calcularVolume(treino.series)
+  const progresso = progressoVoltas(treino)
 
   return (
     <div className="editor-treino">
-      {modo === 'aoVivo' ? (
-        <div className="cartao treino-cabecalho">
-          <p className="treino-data">{formatarDataExtenso(treino.data)}</p>
-          <div className="numeros">
+      <div className="cartao treino-cabecalho">
+        <p className="treino-data">
+          {formatarDataExtenso(treino.data)}
+          {modo !== 'aoVivo' && ` · ${formatarHora(treino.data)}`}
+        </p>
+        <div className="numeros">
+          {modo === 'aoVivo' ? (
             <Cronometro inicio={treino.data} />
-            <Numero valor={`${formatarPeso(volume)} kg`} rotulo="Volume" />
-          </div>
-        </div>
-      ) : (
-        <div className="cartao treino-cabecalho">
-          <p className="treino-data">
-            {formatarDataExtenso(treino.data)} · {formatarHora(treino.data)}
-          </p>
-          <div className="numeros">
+          ) : (
             <Numero valor={formatarMinutos(treino.duracao_min ?? 0)} rotulo="Duração" />
-            <Numero valor={`${formatarPeso(volume)} kg`} rotulo="Volume" />
-          </div>
-          <CamposTreino treino={treino} onGuardar={guardarTreino} />
+          )}
+          <Numero valor={`${formatarPeso(volume)} kg`} rotulo="Volume" />
         </div>
-      )}
+        {progresso.total > 0 && <BarraProgresso {...progresso} />}
+        {modo !== 'aoVivo' && <CamposTreino treino={treino} onGuardar={guardarTreino} />}
+      </div>
 
       {treino.blocos.length === 0 && (
-        <p className="subtitulo">Adiciona o primeiro bloco: um aquecimento, uma série ou uma super série.</p>
+        <EstadoVazio
+          icone={Layers}
+          titulo="Ainda não há blocos"
+          texto="Adiciona o primeiro: um aquecimento, uma série ou uma super série."
+        />
       )}
 
       {treino.blocos.map((bloco, i) => (
@@ -330,43 +340,59 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
         />
       ))}
 
-      <button className="botao-secundario" onClick={() => setACriarBloco(true)}>
-        + Adicionar bloco
+      <button className="botao-secundario com-icone" onClick={() => setACriarBloco(true)}>
+        <Plus size={20} />
+        Adicionar bloco
       </button>
 
       <NotasTreino key={treino.id} treino={treino} onGuardar={guardarTreino} />
 
       {erro && <p className="erro">{erro}</p>}
 
-      {confirmar ? (
-        <div className="cartao confirmacao">
+      <div className="acoes-treino">
+        {modo === 'aoVivo' ? (
+          <button className="botao-grande com-icone" onClick={terminar} disabled={aGravar}>
+            <Flag size={20} />
+            {aGravar ? 'A gravar...' : 'Terminar treino'}
+          </button>
+        ) : (
+          <button
+            className="botao-grande com-icone"
+            onClick={() => {
+              avisar('Treino guardado')
+              onConcluido(resumoTreino(treino.series, treino.duracao_min ?? 0))
+            }}
+          >
+            <Check size={20} />
+            Concluir
+          </button>
+        )}
+        <button className="botao-perigo com-icone" onClick={() => setConfirmar('apagar')}>
+          <Trash2 size={18} />
+          {modo === 'aoVivo' ? 'Descartar treino' : 'Apagar treino'}
+        </button>
+      </div>
+
+      {confirmar && (
+        <Confirmar
+          titulo={
+            confirmar === 'vazio' ? 'Treino sem séries' : modo === 'aoVivo' ? 'Descartar treino?' : 'Apagar treino?'
+          }
+          textoConfirmar={modo === 'aoVivo' ? 'Descartar treino' : 'Apagar treino'}
+          textoCancelar={modo === 'aoVivo' ? 'Continuar a treinar' : 'Cancelar'}
+          aProcessar={aGravar}
+          onConfirmar={apagarTreino}
+          onCancelar={() => setConfirmar(null)}
+        >
           <p>
             {confirmar === 'vazio'
               ? 'Este treino ainda não tem séries feitas. Queres descartá-lo?'
               : modo === 'aoVivo'
-                ? 'Descartar este treino? Os blocos e as séries serão apagados.'
-                : 'Apagar este treino? Os blocos e as séries serão apagados e não é possível desfazer.'}
+                ? 'Os blocos e as séries deste treino serão apagados.'
+                : 'Os blocos e as séries deste treino serão apagados. Não é possível desfazer.'}
           </p>
-          <button className="botao-perigo-cheio" onClick={apagarTreino} disabled={aGravar}>
-            {modo === 'aoVivo' ? 'Descartar treino' : 'Apagar treino'}
-          </button>
-          <button className="botao-secundario" onClick={() => setConfirmar(null)}>
-            {modo === 'aoVivo' ? 'Continuar a treinar' : 'Cancelar'}
-          </button>
-        </div>
-      ) : (
-        <div className="acoes-treino">
-          {modo === 'aoVivo' ? (
-            <button onClick={terminar} disabled={aGravar}>
-              {aGravar ? 'A gravar...' : 'Terminar treino'}
-            </button>
-          ) : (
-            <button onClick={() => onConcluido(resumoTreino(treino.series, treino.duracao_min ?? 0))}>Concluir</button>
-          )}
-          <button className="botao-perigo" onClick={() => setConfirmar('apagar')}>
-            {modo === 'aoVivo' ? 'Descartar treino' : 'Apagar treino'}
-          </button>
-        </div>
+          {erro && <p className="erro">{erro}</p>}
+        </Confirmar>
       )}
 
       {aCriarBloco && <NovoBloco onCriar={criarBloco} onFechar={() => setACriarBloco(false)} />}
@@ -394,6 +420,31 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
   )
 }
 
+// Voltas feitas sobre o total do treino
+function BarraProgresso({ feitas, total }) {
+  const percentagem = Math.round((feitas / total) * 100)
+  return (
+    <div className="progresso">
+      <div className="progresso-texto">
+        <span>Voltas feitas</span>
+        <span className="progresso-numeros">
+          {feitas}/{total}
+        </span>
+      </div>
+      <div
+        className="progresso-barra"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={feitas}
+        aria-label="Voltas feitas"
+      >
+        <span style={{ width: `${percentagem}%` }} />
+      </div>
+    </div>
+  )
+}
+
 // Componente à parte para só ele voltar a desenhar-se a cada segundo
 function Cronometro({ inicio }) {
   const [agora, setAgora] = useState(() => Date.now())
@@ -403,7 +454,9 @@ function Cronometro({ inicio }) {
     return () => clearInterval(intervalo)
   }, [])
 
-  return <Numero valor={formatarCronometro((agora - new Date(inicio).getTime()) / 1000)} rotulo="Duração" />
+  return (
+    <Numero valor={formatarCronometro((agora - new Date(inicio).getTime()) / 1000)} rotulo="Duração" destaque />
+  )
 }
 
 // Data, hora e duração de um treino passado ou terminado. Grava ao sair de cada campo.

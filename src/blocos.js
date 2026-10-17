@@ -181,6 +181,20 @@ export function contarSeriesNormais(series) {
   return series.filter((s) => !s.aquecimento).length
 }
 
+// Voltas feitas sobre o total, para a barra de progresso (só blocos com exercícios): { feitas, total }
+export function progressoVoltas(treino) {
+  const { blocos, series } = normalizarTreino(treino)
+  let feitas = 0
+  let total = 0
+  for (const bloco of blocos) {
+    if (bloco.bloco_exercicios.length === 0) continue
+    const voltas = estadoVoltas(bloco, series.filter((s) => s.bloco_id === bloco.id))
+    total += voltas.length
+    feitas += voltas.filter((v) => v.feita).length
+  }
+  return { feitas, total }
+}
+
 // Resumo mostrado ao terminar ou registar um treino (o volume e as séries sem aquecimento)
 export function resumoTreino(series, duracao) {
   return {

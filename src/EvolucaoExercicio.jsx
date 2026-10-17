@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { CORES } from './cores'
+import { ChevronRight } from 'lucide-react'
+import { CORES, degradeVerde } from './cores'
 import Grafico from './Grafico'
 import Pilulas from './Pilulas'
 import { estimarRM, evolucaoExercicio, inicioPeriodo, precisaoEstimativa } from './estatisticas'
@@ -68,7 +69,9 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
           data: pontos.map((p) => p.valor),
           borderColor: CORES.verde,
           borderWidth: 2,
-          tension: 0.25,
+          tension: 0.3,
+          fill: true,
+          backgroundColor: degradeVerde,
           pointRadius: pontos.map((p) =>
             p.treino.id === selecionadoId ? 8 : p.recorde ? 6 : pontos.length > 40 ? 2 : 3.5
           ),
@@ -108,7 +111,7 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
         x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 10 } },
         y: {
           border: { display: false },
-          grid: { color: CORES.borda },
+          grid: { color: CORES.grelha },
           grace: '10%',
           ticks: {
             maxTicksLimit: 5,
@@ -153,8 +156,9 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
                       ` · ${selecionado.serie.repeticoes} × ${formatarPeso(selecionado.serie.peso_kg)} kg`}
                   </span>
                 </div>
-                <button className="botao-link" onClick={() => onAbrirTreino(selecionado.treino.id)}>
-                  Abrir treino ›
+                <button className="botao-link com-icone" onClick={() => onAbrirTreino(selecionado.treino.id)}>
+                  Abrir treino
+                  <ChevronRight size={16} />
                 </button>
               </div>
             ) : (
