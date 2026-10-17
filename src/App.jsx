@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import Login from './Login'
+import Treino from './Treino'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -21,72 +22,90 @@ export default function App() {
 
   if (aCarregar) return <p>A carregar...</p>
   if (!session) return <Login />
-  return <TesteLigacao email={session.user.email} />
+  return <Principal email={session.user.email} />
 }
 
-// Ecrã temporário só para testar a base de dados
-function TesteLigacao({ email }) {
-  const [exercicios, setExercicios] = useState([])
-  const [nome, setNome] = useState('')
-  const [erro, setErro] = useState('')
+const SEPARADORES = [
+  { id: 'treino', nome: 'Treino', icone: IconeTreino },
+  { id: 'historico', nome: 'Histórico', icone: IconeHistorico },
+  { id: 'perfil', nome: 'Perfil', icone: IconePerfil },
+]
 
-  async function carregar() {
-    const { data, error } = await supabase
-      .from('exercicios')
-      .select('*')
-      .order('nome')
-    if (error) setErro(error.message)
-    else setExercicios(data)
-  }
-
-  useEffect(() => {
-    carregar()
-  }, [])
-
-  async function adicionar(e) {
-    e.preventDefault()
-    if (!nome.trim()) return
-    const { error } = await supabase
-      .from('exercicios')
-      .insert({ nome: nome.trim() })
-    if (error) {
-      setErro(error.message)
-    } else {
-      setNome('')
-      setErro('')
-      carregar()
-    }
-  }
+function Principal({ email }) {
+  const [separador, setSeparador] = useState('treino')
 
   return (
-    <div>
-      <h1>Olá!</h1>
-      <p className="subtitulo">Entraste como {email}</p>
-
-      <div className="cartao">
-        <h2>Os meus exercícios</h2>
-        <form className="linha" onSubmit={adicionar}>
-          <input
-            placeholder="Ex: Supino plano"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-          />
-          <button type="submit">+</button>
-        </form>
-        {erro && <p className="erro">{erro}</p>}
-        <ul className="lista">
-          {exercicios.map((ex) => (
-            <li key={ex.id}>{ex.nome}</li>
-          ))}
-        </ul>
-        {exercicios.length === 0 && (
-          <p className="subtitulo">Ainda não tens exercícios.</p>
-        )}
+    <div className="com-navegacao">
+      {/* O Treino fica sempre montado para não perder os exercícios ainda sem séries ao mudar de separador */}
+      <div hidden={separador !== 'treino'}>
+        <Treino />
       </div>
+      {separador === 'historico' && <Historico />}
+      {separador === 'perfil' && <Perfil email={email} />}
 
+      <nav className="navegacao">
+        {SEPARADORES.map(({ id, nome, icone: Icone }) => (
+          <button
+            key={id}
+            className={separador === id ? 'ativo' : ''}
+            onClick={() => setSeparador(id)}
+            aria-current={separador === id ? 'page' : undefined}
+          >
+            <Icone />
+            <span>{nome}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  )
+}
+
+function Historico() {
+  return (
+    <div>
+      <h1>Histórico</h1>
+      <p className="subtitulo">Em breve.</p>
+    </div>
+  )
+}
+
+function Perfil({ email }) {
+  return (
+    <div>
+      <h1>Perfil</h1>
+      <div className="cartao">
+        <p className="subtitulo perfil-rotulo">Email</p>
+        <p className="perfil-valor">{email}</p>
+      </div>
       <button className="botao-secundario" onClick={() => supabase.auth.signOut()}>
         Sair
       </button>
     </div>
+  )
+}
+
+function IconeTreino() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12" />
+    </svg>
+  )
+}
+
+function IconeHistorico() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+function IconePerfil() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
   )
 }
