@@ -5,6 +5,8 @@ import Grafico from './Grafico'
 import Pilulas from './Pilulas'
 import { estimarRM, evolucaoExercicio, inicioPeriodo, precisaoEstimativa } from './estatisticas'
 import { abreviarNumero, formatarDataCurta, formatarDataExtenso, formatarPeso, melhorSerie } from './formatar'
+import { usePesoCorporal } from './contextoPesoCorporal'
+import { cargaSimples, pesoCorporalNaData, textoCargaEfetiva, textoSerie } from './pesoCorporal'
 
 const METRICAS = [
   { id: '1rm', nome: '1RM estimado' },
@@ -40,7 +42,8 @@ const arredondarMeioKg = (kg) => Math.round(kg * 2) / 2
 
 // Gráfico de evolução e cartão eRM da página de um exercício.
 // series: todas as séries do exercício em treinos terminados (com s.treinos = { id, data }).
-export default function EvolucaoExercicio({ series, onAbrirTreino }) {
+// carga(serie, data): carga efetiva (peso corporal incluído); pesoCorporal: o exercício é de peso corporal.
+export default function EvolucaoExercicio({ series, carga = cargaSimples, pesoCorporal = false, onAbrirTreino }) {
   const [agora] = useState(() => new Date())
   const [metrica, setMetrica] = useState('1rm')
   const [periodo, setPeriodo] = useState('sempre')
@@ -50,9 +53,9 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
 
   // Os recordes são calculados com o histórico todo e só depois se filtra pelo período
   const pontos = useMemo(() => {
-    const todos = evolucaoExercicio(series, metrica)
+    const todos = evolucaoExercicio(series, metrica, carga)
     return desde ? todos.filter((p) => new Date(p.treino.data) >= desde) : todos
-  }, [series, metrica, desde])
+  }, [series, metrica, desde, carga])
 
   const selecionado = pontos.find((p) => p.treino.id === selecionadoId) ?? null
   const temRecordes = pontos.some((p) => p.recorde)
@@ -102,7 +105,7 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
             },
             afterLabel: (item) => {
               const { serie } = pontos[item.dataIndex]
-              return serie ? `${serie.repeticoes} × ${formatarPeso(serie.peso_kg)} kg` : ''
+              return serie ? textoSerie(serie.repeticoes, serie.peso_kg, pesoCorporal) : ''
             },
           },
         },
@@ -120,7 +123,7 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
         },
       },
     }),
-    [pontos, metrica]
+    [pontos, metrica, pesoCorporal]
   )
 
   return (
@@ -153,7 +156,7 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
                   <span className="ponto-escolhido-detalhe">
                     {formatarDataExtenso(selecionado.treino.data)}
                     {selecionado.serie &&
-                      ` · ${selecionado.serie.repeticoes} × ${formatarPeso(selecionado.serie.peso_kg)} kg`}
+                      ` · ${textoSerie(selecionado.serie.repeticoes, selecionado.serie.peso_kg, pesoCorporal)}`}
                   </span>
                 </div>
                 <button className="botao-link com-icone" onClick={() => onAbrirTreino(selecionado.treino.id)}>
@@ -168,24 +171,34 @@ export default function EvolucaoExercicio({ series, onAbrirTreino }) {
         )}
       </div>
 
-      <CartaoERM series={series} desde={desde} periodo={periodo} />
+      <CartaoERM series={series} desde={desde} periodo={periodo} carga={carga} pesoCorporal={pesoCorporal} />
     </>
   )
 }
 
-// Repetição máxima estimada a partir da melhor série (de sempre ou do período escolhido)
-function CartaoERM({ series, desde, periodo }) {
+// Repetição máxima estimada a partir da melhor série (de sempre ou do período escolhido).
+// Nos exercícios de peso corporal, a estimativa usa a carga total (corpo + extra).
+function CartaoERM({ series, desde, periodo, carga, pesoCorporal }) {
   const [n, setN] = useState(1)
   const [explicacaoAberta, setExplicacaoAberta] = useState(false)
+  const { medicoes } = usePesoCorporal()
 
   const origem = useMemo(
-    () => melhorSerie(series.filter((s) => !desde || new Date(s.treinos.data) >= desde)),
-    [series, desde]
+    () =>
+      melhorSerie(
+        series.filter((s) => !desde || new Date(s.treinos.data) >= desde),
+        (s) => carga(s, s.treinos.data)
+      ),
+    [series, desde, carga]
   )
 
   if (!origem) return null
 
-  const estimativa = estimarRM(origem.repeticoes, origem.peso_kg, n)
+  const estimativa = estimarRM(origem.repeticoes, carga(origem, origem.treinos.data), n)
+  // "8 × 84,5 kg (PC 74,5 + 10)"; sem peso corporal registado: "8 × PC + 10 kg"
+  const textoOrigem = pesoCorporal
+    ? `${origem.repeticoes} × ${textoCargaEfetiva(origem.peso_kg, pesoCorporalNaData(medicoes, origem.treinos.data))}`
+    : textoSerie(origem.repeticoes, origem.peso_kg)
   const min = arredondarMeioKg(estimativa.min)
   const max = arredondarMeioKg(estimativa.max)
   const precisao = precisaoEstimativa(origem.repeticoes)
@@ -233,8 +246,8 @@ function CartaoERM({ series, desde, periodo }) {
       )}
 
       <p className="nota">
-        Com base na melhor série {periodoTexto}: {origem.repeticoes} × {formatarPeso(origem.peso_kg)} kg, a{' '}
-        {formatarDataCurta(origem.treinos.data)}.
+        Com base na melhor série {periodoTexto}: {textoOrigem}, a {formatarDataCurta(origem.treinos.data)}.
+        {pesoCorporal && ' Os valores são a carga total (corpo + extra).'}
       </p>
     </div>
   )

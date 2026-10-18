@@ -1,8 +1,11 @@
 // Cálculos de estatísticas. Recebem só dados de treinos terminados;
 // as séries de aquecimento são sempre ignoradas. Datas na hora local; semanas começam à segunda.
 // As funções são puras (o "agora" vem por argumento) para poderem ser testadas.
+// carga(serie, dataDoTreino): o peso a usar em cada série. Nos exercícios de peso corporal inclui o
+// corpo (ver pesoCorporal.js > criarCarga); por omissão é o peso gravado, como sempre foi.
 import { calcular1RM, calcularVolume, chaveDia, melhorSerie } from './formatar'
 import { MUSCULOS } from './musculos'
+import { cargaSimples } from './pesoCorporal'
 
 // ---------- Datas ----------
 
@@ -37,19 +40,24 @@ export function inicioPeriodo(periodo, agora) {
 const seriesNormais = (series) => series.filter((s) => !s.aquecimento)
 
 // metrica: 'treinos' | 'volume' | 'duracao' (minutos) | 'series' (sem aquecimento)
-export function metricaTreino(treino, metrica) {
+export function metricaTreino(treino, metrica, carga = cargaSimples) {
   if (metrica === 'treinos') return 1
-  if (metrica === 'volume') return calcularVolume(treino.series)
+  if (metrica === 'volume') return volumeTreino(treino, carga)
   if (metrica === 'duracao') return treino.duracao_min ?? 0
   return seriesNormais(treino.series).length
 }
 
+// Volume de um treino com a carga efetiva de cada série
+export function volumeTreino(treino, carga = cargaSimples) {
+  return calcularVolume(treino.series, (s) => carga(s, treino.data))
+}
+
 // Totais da métrica: { mes, ano, sempre } (este mês e este ano do "agora")
-export function resumoPeriodos(treinos, metrica, agora) {
+export function resumoPeriodos(treinos, metrica, agora, carga = cargaSimples) {
   const resumo = { mes: 0, ano: 0, sempre: 0 }
   for (const treino of treinos) {
     const d = new Date(treino.data)
-    const valor = metricaTreino(treino, metrica)
+    const valor = metricaTreino(treino, metrica, carga)
     resumo.sempre += valor
     if (d.getFullYear() === agora.getFullYear()) {
       resumo.ano += valor
@@ -61,7 +69,7 @@ export function resumoPeriodos(treinos, metrica, agora) {
 
 // Soma da métrica nas últimas `quantidade` semanas ou meses (incluindo o atual), das mais antigas
 // para as mais recentes, com zeros onde não houve treinos: [{ inicio: Date, valor }]
-export function serieTemporal(treinos, metrica, unidade, agora, quantidade = 12) {
+export function serieTemporal(treinos, metrica, unidade, agora, quantidade = 12, carga = cargaSimples) {
   const chave = (data) => {
     const d = new Date(data)
     return unidade === 'semana' ? chaveDia(inicioSemana(d)) : `${d.getFullYear()}-${d.getMonth()}`
@@ -77,7 +85,7 @@ export function serieTemporal(treinos, metrica, unidade, agora, quantidade = 12)
   const porChave = new Map(baldes.map((b) => [b.chave, b]))
   for (const treino of treinos) {
     const balde = porChave.get(chave(treino.data))
-    if (balde) balde.valor += metricaTreino(treino, metrica)
+    if (balde) balde.valor += metricaTreino(treino, metrica, carga)
   }
   return baldes.map(({ inicio, valor }) => ({ inicio, valor }))
 }
@@ -85,12 +93,12 @@ export function serieTemporal(treinos, metrica, unidade, agora, quantidade = 12)
 // ---------- Consistência ----------
 
 // Map("2026-10-17" → { volume, treinos: [...] })
-export function treinosPorDia(treinos) {
+export function treinosPorDia(treinos, carga = cargaSimples) {
   const mapa = new Map()
   for (const treino of treinos) {
     const chave = chaveDia(treino.data)
     const dia = mapa.get(chave) ?? { volume: 0, treinos: [] }
-    dia.volume += calcularVolume(treino.series)
+    dia.volume += volumeTreino(treino, carga)
     dia.treinos.push(treino)
     mapa.set(chave, dia)
   }
@@ -156,35 +164,36 @@ export function sequenciasSemanas(treinos, agora) {
 // ---------- Recordes ----------
 
 // Maior peso (empate: mais reps), mais reps (empate: mais peso), maior volume num treino e
-// treino mais longo. Cada um é null se não houver dados.
-export function recordesGerais(treinos) {
+// treino mais longo. Cada um é null se não houver dados. O maior peso e as mais reps trazem
+// também `carga` (a carga efetiva da série).
+export function recordesGerais(treinos, carga = cargaSimples) {
   let maiorPeso = null
   let maisReps = null
   let maiorVolume = null
   let maisLongo = null
 
   for (const treino of treinos) {
-    const volume = calcularVolume(treino.series)
+    const volume = volumeTreino(treino, carga)
     if (!maiorVolume || volume > maiorVolume.valor) maiorVolume = { treino, valor: volume }
     if (!maisLongo || (treino.duracao_min ?? 0) > maisLongo.valor) {
       maisLongo = { treino, valor: treino.duracao_min ?? 0 }
     }
 
     for (const serie of seriesNormais(treino.series)) {
-      const peso = Number(serie.peso_kg)
+      const peso = carga(serie, treino.data)
       if (
         !maiorPeso ||
-        peso > Number(maiorPeso.serie.peso_kg) ||
-        (peso === Number(maiorPeso.serie.peso_kg) && serie.repeticoes > maiorPeso.serie.repeticoes)
+        peso > maiorPeso.carga ||
+        (peso === maiorPeso.carga && serie.repeticoes > maiorPeso.serie.repeticoes)
       ) {
-        maiorPeso = { serie, treino }
+        maiorPeso = { serie, treino, carga: peso }
       }
       if (
         !maisReps ||
         serie.repeticoes > maisReps.serie.repeticoes ||
-        (serie.repeticoes === maisReps.serie.repeticoes && peso > Number(maisReps.serie.peso_kg))
+        (serie.repeticoes === maisReps.serie.repeticoes && peso > maisReps.carga)
       ) {
-        maisReps = { serie, treino }
+        maisReps = { serie, treino, carga: peso }
       }
     }
   }
@@ -196,14 +205,14 @@ export function recordesGerais(treinos) {
 // Volume atribuído a cada músculo desde `desde` (null = sempre): o principal recebe 100% do
 // volume da série e os secundários 50%. musculosPorExercicio: Map(exercicio_id → [{ musculo, principal }]).
 // Devolve { valores: Map(musculo → volume), total, semMusculos: Set(exercicio_id) }
-export function volumePorMusculo(treinos, musculosPorExercicio, desde = null) {
+export function volumePorMusculo(treinos, musculosPorExercicio, desde = null, carga = cargaSimples) {
   const valores = new Map(MUSCULOS.map((m) => [m.id, 0]))
   const semMusculos = new Set()
 
   for (const treino of treinos) {
     if (desde && new Date(treino.data) < desde) continue
     for (const serie of seriesNormais(treino.series)) {
-      const volume = serie.repeticoes * Number(serie.peso_kg)
+      const volume = serie.repeticoes * carga(serie, treino.data)
       if (volume <= 0) continue
       const musculos = musculosPorExercicio.get(serie.exercicio_id) ?? []
       if (musculos.length === 0) {
@@ -226,27 +235,26 @@ export function volumePorMusculo(treinos, musculosPorExercicio, desde = null) {
 // Um ponto por sessão (das mais antigas para as mais recentes): { treino, valor, serie, recorde }.
 // metrica: '1rm' | 'peso' | 'volume' | 'reps'. `serie` é a melhor série (null para o volume).
 // recorde = o valor bateu todos os anteriores no momento em que aconteceu (a 1.ª sessão não conta).
-export function evolucaoExercicio(series, metrica) {
+export function evolucaoExercicio(series, metrica, carga = cargaSimples) {
   const pontos = []
   let maximo = -Infinity
 
   for (const { treino, series: daSessao } of sessoesPorTreino(series).reverse()) {
     const normais = seriesNormais(daSessao)
     if (normais.length === 0) continue
+    const pesoDe = (s) => carga(s, treino.data)
 
     let serie = null
     let valor
     if (metrica === 'volume') {
-      valor = calcularVolume(normais)
+      valor = calcularVolume(normais, pesoDe)
     } else if (metrica === '1rm') {
-      serie = melhorSerie(normais)
-      valor = calcular1RM(serie.repeticoes, serie.peso_kg)
+      serie = melhorSerie(normais, pesoDe)
+      valor = calcular1RM(serie.repeticoes, pesoDe(serie))
     } else {
       // 'peso': maior peso (empate: mais reps); 'reps': mais reps (empate: mais peso)
       const [principal, desempate] =
-        metrica === 'peso'
-          ? [(s) => Number(s.peso_kg), (s) => s.repeticoes]
-          : [(s) => s.repeticoes, (s) => Number(s.peso_kg)]
+        metrica === 'peso' ? [pesoDe, (s) => s.repeticoes] : [(s) => s.repeticoes, pesoDe]
       serie = normais.reduce((melhor, s) =>
         principal(s) > principal(melhor) ||
         (principal(s) === principal(melhor) && desempate(s) > desempate(melhor))
@@ -309,10 +317,11 @@ export function estatisticasPorExercicio(treinos) {
 }
 
 // series: séries de UM exercício, com o treino aninhado (s.treinos = { id, data }).
-// Devolve null se não houver séries normais.
-export function resumoExercicio(series) {
+// Devolve null se não houver séries normais. recordeCarga é a carga efetiva do recorde de peso.
+export function resumoExercicio(series, carga = cargaSimples) {
   const normais = series.filter((s) => !s.aquecimento)
   if (normais.length === 0) return null
+  const pesoDe = (s) => carga(s, s.treinos.data)
 
   let recordePeso = normais[0]
   let maisReps = normais[0]
@@ -320,15 +329,15 @@ export function resumoExercicio(series) {
   let ultima = normais[0].treinos.data
 
   for (const s of normais) {
-    const peso = Number(s.peso_kg)
-    const pesoRecorde = Number(recordePeso.peso_kg)
+    const peso = pesoDe(s)
+    const pesoRecorde = pesoDe(recordePeso)
     // Em caso de empate no peso, conta a série com mais repetições (e vice-versa)
     if (peso > pesoRecorde || (peso === pesoRecorde && s.repeticoes > recordePeso.repeticoes)) {
       recordePeso = s
     }
     if (
       s.repeticoes > maisReps.repeticoes ||
-      (s.repeticoes === maisReps.repeticoes && peso > Number(maisReps.peso_kg))
+      (s.repeticoes === maisReps.repeticoes && peso > pesoDe(maisReps))
     ) {
       maisReps = s
     }
@@ -336,15 +345,16 @@ export function resumoExercicio(series) {
     if (new Date(s.treinos.data) > new Date(ultima)) ultima = s.treinos.data
   }
 
-  const melhor = melhorSerie(normais)
+  const melhor = melhorSerie(normais, pesoDe)
   return {
     numTreinos: new Set(normais.map((s) => s.treino_id)).size,
     primeira,
     ultima,
     recordePeso,
+    recordeCarga: pesoDe(recordePeso),
     maisReps,
     melhor,
-    melhor1RM: calcular1RM(melhor.repeticoes, melhor.peso_kg),
+    melhor1RM: calcular1RM(melhor.repeticoes, pesoDe(melhor)),
   }
 }
 

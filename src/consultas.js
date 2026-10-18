@@ -2,15 +2,16 @@ import { supabase } from './supabase'
 
 // Os blocos de um treino, com os exercícios e os alvos
 const SELECT_BLOCOS =
-  'blocos(id, ordem, tipo, voltas, notas, bloco_exercicios(id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios(id, nome)))'
+  'blocos(id, ordem, tipo, voltas, notas, bloco_exercicios(id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios(id, nome, peso_corporal)))'
 
-// Um treino com as relações aninhadas: treinos → blocos → bloco_exercicios, e treinos → series
+// Um treino com as relações aninhadas: treinos → blocos → bloco_exercicios, e treinos → series.
+// Os exercícios vêm com peso_corporal, para a carga efetiva (ver pesoCorporal.js).
 export const SELECT_TREINO =
-  `id, data, duracao_min, notas, ${SELECT_BLOCOS}, ` +
-  'series(id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome))'
+  `id, data, duracao_min, notas, favorito, nome_favorito, ${SELECT_BLOCOS}, ` +
+  'series(id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome, peso_corporal))'
 
-// Um exercício com os seus músculos
-export const SELECT_EXERCICIO = 'id, nome, exercicio_musculos(musculo, principal)'
+// Um exercício com os seus músculos (e se é de peso corporal)
+export const SELECT_EXERCICIO = 'id, nome, peso_corporal, exercicio_musculos(musculo, principal)'
 
 // O Supabase devolve no máximo 1000 linhas por pedido. Para estatísticas que precisam de todas,
 // pede página a página. criarConsulta() tem de devolver uma consulta nova, com uma ordem estável.
@@ -29,12 +30,15 @@ export function buscarExercicios() {
   return buscarTudo(() => supabase.from('exercicios').select(SELECT_EXERCICIO).order('id'))
 }
 
-// Todos os treinos terminados com as séries (sem os nomes dos exercícios), para as estatísticas
+// Todos os treinos terminados com as séries, para as estatísticas. Cada série traz se o exercício é
+// de peso corporal (sem o nome), para a carga efetiva.
 export function buscarTreinosTerminados() {
   return buscarTudo(() =>
     supabase
       .from('treinos')
-      .select('id, data, duracao_min, series(id, exercicio_id, ordem, repeticoes, peso_kg, aquecimento)')
+      .select(
+        'id, data, duracao_min, series(id, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(peso_corporal))'
+      )
       .not('duracao_min', 'is', null)
       .order('id')
   )
@@ -45,7 +49,12 @@ export function buscarMedicoes() {
   return buscarTudo(() => supabase.from('medicoes').select('*').order('id'))
 }
 
-// Tabelas incluídas na exportação, com uma coluna para ordenar as páginas de forma estável
+// Só a data e o peso de cada medição: chega para saber o peso corporal numa data
+export function buscarPesosCorporais() {
+  return buscarTudo(() => supabase.from('medicoes').select('id, data, peso_kg').order('id'))
+}
+
+// Tabelas incluídas na exportação (com select('*'), por isso as colunas novas entram sozinhas), com uma coluna para ordenar as páginas de forma estável
 const TABELAS_EXPORTACAO = [
   ['perfil', 'user_id'],
   ['exercicios', 'id'],
@@ -112,4 +121,15 @@ export async function buscarTreinosParaCopiar(limite = 30) {
     .limit(limite)
   if (error) return { erro: error.message }
   return { treinos: data.filter((t) => t.blocos.length > 0) }
+}
+
+// Os treinos favoritos, com a estrutura (blocos, exercícios e alvos), do mais recente para o mais antigo
+export async function buscarFavoritos() {
+  const { data, error } = await supabase
+    .from('treinos')
+    .select(`id, data, nome_favorito, ${SELECT_BLOCOS}`)
+    .eq('favorito', true)
+    .order('data', { ascending: false })
+  if (error) return { erro: error.message }
+  return { favoritos: data }
 }

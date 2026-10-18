@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Check, Flag, Layers, Plus, Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
+import AvisoPesoCorporal from './AvisoPesoCorporal'
 import CartaoBloco from './CartaoBloco'
+import { useCarga, usePesoCorporalNaData } from './contextoPesoCorporal'
 import Confirmar from './Confirmar'
 import EstadoVazio from './EstadoVazio'
 import NotasTreino from './NotasTreino'
@@ -32,8 +34,9 @@ import {
   formatarPeso,
 } from './formatar'
 
-const CAMPOS_SERIE = 'id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome)'
-const CAMPOS_BLOCO_EXERCICIO = 'id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios(id, nome)'
+const CAMPOS_SERIE =
+  'id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome, peso_corporal)'
+const CAMPOS_BLOCO_EXERCICIO = 'id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios(id, nome, peso_corporal)'
 
 // Editor de um treino organizado em blocos, usado em 3 modos:
 //   'aoVivo'  — o treino em curso, com cronómetro (Terminar / Descartar)
@@ -49,6 +52,10 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
   const [aCriarBloco, setACriarBloco] = useState(false)
   const [opcoesId, setOpcoesId] = useState(null)
   const avisar = useAvisos()
+  // Carga efetiva das séries (nos exercícios de peso corporal, inclui o peso do corpo nesta data)
+  const carga = useCarga()
+  const pesoCorporalKg = usePesoCorporalNaData(treinoRecebido.data)
+  const cargaDaSerie = (s) => carga(s, treino.data)
 
   const numeros = numerarBlocos(treino.blocos)
   const seriesDoBloco = (blocoId) => treino.series.filter((s) => s.bloco_id === blocoId)
@@ -72,7 +79,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     setAGravar(false)
     if (mensagem) return setErro(mensagem)
     avisar('Treino guardado')
-    onTerminado(resumoTreino(treino.series, duracao))
+    onTerminado(resumoTreino(treino.series, duracao, cargaDaSerie))
   }
 
   async function apagarTreino() {
@@ -221,6 +228,24 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     return null
   }
 
+  // Liga ou desliga o "peso corporal" de um exercício. Vale para o exercício em TODOS os treinos,
+  // por isso também atualiza as cópias dele que estão neste treino.
+  async function mudarPesoCorporal(exercicio, pesoCorporal) {
+    const { error } = await supabase.from('exercicios').update({ peso_corporal: pesoCorporal }).eq('id', exercicio.id)
+    if (error) return error.message
+    const atualizar = (e) => (e?.id === exercicio.id ? { ...e, peso_corporal: pesoCorporal } : e)
+    onAlterar((t) => ({
+      ...t,
+      blocos: t.blocos.map((b) => ({
+        ...b,
+        bloco_exercicios: b.bloco_exercicios.map((be) => ({ ...be, exercicios: atualizar(be.exercicios) })),
+      })),
+      series: t.series.map((s) => ({ ...s, exercicios: atualizar(s.exercicios) })),
+    }))
+    avisar(`${exercicio.nome}: peso corporal ${pesoCorporal ? 'ligado' : 'desligado'} (em todos os treinos)`)
+    return null
+  }
+
   async function moverExercicio(bloco, indice, direcao) {
     const resultado = reordenar(bloco.bloco_exercicios, indice, direcao)
     if (!resultado) return null
@@ -295,7 +320,8 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
 
   // ---------- Ecrã ----------
 
-  const volume = calcularVolume(treino.series)
+  const volume = calcularVolume(treino.series, cargaDaSerie)
+  const temPesoCorporal = treino.blocos.some((b) => b.bloco_exercicios.some((be) => be.exercicios?.peso_corporal))
   const progresso = progressoVoltas(treino)
 
   return (
@@ -315,6 +341,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
         </div>
         {progresso.total > 0 && <BarraProgresso {...progresso} />}
         {modo !== 'aoVivo' && <CamposTreino treino={treino} onGuardar={guardarTreino} />}
+        <AvisoPesoCorporal mostrar={temPesoCorporal} />
       </div>
 
       {treino.blocos.length === 0 && (
@@ -332,6 +359,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
           titulo={tituloBloco(bloco, numeros[i])}
           series={seriesDoBloco(bloco.id)}
           dataTreino={treino.data}
+          pesoCorporalKg={pesoCorporalKg}
           onOpcoes={() => setOpcoesId(bloco.id)}
           onMudarVoltas={(delta) => mudarVoltas(bloco, delta)}
           onGravarVolta={(volta, lista) => gravarVolta(bloco, volta, lista)}
@@ -360,7 +388,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
             className="botao-grande com-icone"
             onClick={() => {
               avisar('Treino guardado')
-              onConcluido(resumoTreino(treino.series, treino.duracao_min ?? 0))
+              onConcluido(resumoTreino(treino.series, treino.duracao_min ?? 0, cargaDaSerie))
             }}
           >
             <Check size={20} />
@@ -391,11 +419,14 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
                 ? 'Os blocos e as séries deste treino serão apagados.'
                 : 'Os blocos e as séries deste treino serão apagados. Não é possível desfazer.'}
           </p>
+          {treino.favorito && confirmar !== 'vazio' && <p>Este treino é um favorito: também sai dos favoritos.</p>}
           {erro && <p className="erro">{erro}</p>}
         </Confirmar>
       )}
 
-      {aCriarBloco && <NovoBloco onCriar={criarBloco} onFechar={() => setACriarBloco(false)} />}
+      {aCriarBloco && (
+        <NovoBloco onCriar={criarBloco} onMudarPesoCorporal={mudarPesoCorporal} onFechar={() => setACriarBloco(false)} />
+      )}
 
       {blocoComOpcoes && (
         <OpcoesBloco
@@ -413,6 +444,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
           onRemoverExercicio={(be) => removerExercicio(blocoComOpcoes, be)}
           onAtualizarExercicio={(beId, campos) => atualizarExercicio(blocoComOpcoes.id, beId, campos)}
           onMoverExercicio={(indice, direcao) => moverExercicio(blocoComOpcoes, indice, direcao)}
+          onMudarPesoCorporal={mudarPesoCorporal}
           onFechar={() => setOpcoesId(null)}
         />
       )}

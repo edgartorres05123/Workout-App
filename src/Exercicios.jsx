@@ -40,7 +40,8 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
   const [estatisticas, setEstatisticas] = useState(() => new Map())
   const [erro, setErro] = useState('')
   const [pesquisa, setPesquisa] = useState('')
-  const [soSemMusculos, setSoSemMusculos] = useState(soSemMusculosInicial)
+  // Filtro rápido: 'todos' | 'semMusculos' | 'pesoCorporal'
+  const [filtro, setFiltro] = useState(soSemMusculosInicial ? 'semMusculos' : 'todos')
   const [aCriar, setACriar] = useState(false)
   const [abertoId, setAbertoId] = useState(null)
   const ultimoPedido = useRef(0)
@@ -101,10 +102,10 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
 
   const lista = exercicios ?? []
   const semMusculos = lista.filter((e) => e.exercicio_musculos.length === 0)
+  const deCorpo = lista.filter((e) => e.peso_corporal)
   const termo = normalizarTexto(limparNome(pesquisa))
-  const filtrados = (soSemMusculos ? semMusculos : lista).filter((e) =>
-    normalizarTexto(e.nome).includes(termo)
-  )
+  const porFiltro = { todos: lista, semMusculos, pesoCorporal: deCorpo }
+  const filtrados = porFiltro[filtro].filter((e) => normalizarTexto(e.nome).includes(termo))
   const aberto = lista.find((e) => e.id === abertoId)
 
   return (
@@ -138,18 +139,20 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
         </div>
 
         <div className="filtros">
-          <button
-            className={soSemMusculos ? 'filtro' : 'filtro ativo'}
-            onClick={() => setSoSemMusculos(false)}
-          >
-            Todos ({lista.length})
-          </button>
-          <button
-            className={soSemMusculos ? 'filtro ativo' : 'filtro'}
-            onClick={() => setSoSemMusculos(true)}
-          >
-            Sem músculos ({semMusculos.length})
-          </button>
+          {[
+            ['todos', `Todos (${lista.length})`],
+            ['semMusculos', `Sem músculos (${semMusculos.length})`],
+            ['pesoCorporal', `Peso corporal (${deCorpo.length})`],
+          ].map(([id, rotulo]) => (
+            <button
+              key={id}
+              className={filtro === id ? 'filtro ativo' : 'filtro'}
+              onClick={() => setFiltro(id)}
+              aria-pressed={filtro === id}
+            >
+              {rotulo}
+            </button>
+          ))}
         </div>
 
         {erro && <p className="erro">{erro}</p>}
@@ -163,14 +166,18 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
             texto="Cria o primeiro aqui ou durante um treino, ao adicionar um bloco."
           />
         ) : filtrados.length === 0 ? (
-          soSemMusculos && !termo ? (
+          filtro === 'semMusculos' && !termo ? (
             <EstadoVazio
               icone={CircleCheck}
               titulo="Tudo completo"
               texto="Todos os exercícios têm músculos associados."
             />
           ) : (
-            <p className="subtitulo">Nenhum exercício encontrado.</p>
+            <p className="subtitulo">
+              {filtro === 'pesoCorporal' && !termo
+                ? 'Ainda não há exercícios de peso corporal. Marca-os na página de cada exercício.'
+                : 'Nenhum exercício encontrado.'}
+            </p>
           )
         ) : (
           <div className="cartao lista-exercicios">
@@ -206,7 +213,7 @@ function LinhaExercicio({ exercicio, estatisticas, onAbrir }) {
     <button className="linha-exercicio" onClick={onAbrir}>
       <span className="linha-exercicio-textos">
         <span className="linha-exercicio-nome">{exercicio.nome}</span>
-        <EtiquetasMusculos musculos={exercicio.exercicio_musculos} />
+        <EtiquetasMusculos musculos={exercicio.exercicio_musculos} pesoCorporal={exercicio.peso_corporal} />
         <span className="linha-exercicio-info">
           {estatisticas
             ? `${estatisticas.numTreinos} ${estatisticas.numTreinos === 1 ? 'treino' : 'treinos'} · última vez a ${formatarDataCurta(estatisticas.ultima)}`
@@ -218,16 +225,19 @@ function LinhaExercicio({ exercicio, estatisticas, onAbrir }) {
   )
 }
 
-function EtiquetasMusculos({ musculos }) {
+function EtiquetasMusculos({ musculos, pesoCorporal = false }) {
+  const pc = pesoCorporal && <span className="etiqueta etiqueta-pc">PC</span>
   if (musculos.length === 0) {
     return (
       <span className="etiquetas">
+        {pc}
         <span className="etiqueta etiqueta-aviso">Sem músculos</span>
       </span>
     )
   }
   return (
     <span className="etiquetas">
+      {pc}
       {ordenarMusculos(musculos).map((m) => (
         <span
           key={m.musculo}

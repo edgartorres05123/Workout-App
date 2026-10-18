@@ -7,7 +7,8 @@ import { MINIMO_EXERCICIOS, NOME_TIPO, TIPOS_BLOCO, letraExercicio } from './blo
 
 // Janela para criar um bloco: primeiro o tipo, depois os exercícios.
 // onCriar(tipo, exercicios) devolve uma mensagem de erro, ou null se correu bem.
-export default function NovoBloco({ onCriar, onFechar }) {
+// onMudarPesoCorporal(exercicio, valor): liga ou desliga o peso corporal (em todos os treinos).
+export default function NovoBloco({ onCriar, onMudarPesoCorporal, onFechar }) {
   const [tipo, setTipo] = useState(null)
   const [exercicios, setExercicios] = useState([])
   const [aEscolher, setAEscolher] = useState(false)
@@ -34,6 +35,15 @@ export default function NovoBloco({ onCriar, onFechar }) {
     setExercicios(lista)
     // Uma série tem um só exercício: cria logo o bloco
     if (tipo === 'serie') criar(lista)
+  }
+
+  async function alternarPesoCorporal(exercicio) {
+    if (!onMudarPesoCorporal) return
+    setErro('')
+    const valor = !exercicio.peso_corporal
+    const mensagem = await onMudarPesoCorporal(exercicio, valor)
+    if (mensagem) return setErro(mensagem)
+    setExercicios((atuais) => atuais.map((e) => (e.id === exercicio.id ? { ...e, peso_corporal: valor } : e)))
   }
 
   const podeCriar = tipo && exercicios.length >= MINIMO_EXERCICIOS[tipo]
@@ -65,6 +75,15 @@ export default function NovoBloco({ onCriar, onFechar }) {
                       <span className="letra">{letraExercicio(i)}</span>
                       <span className="linha-escolhida-nome">{e.nome}</span>
                       <button
+                        type="button"
+                        className={e.peso_corporal ? 'botao-pc ativo' : 'botao-pc'}
+                        onClick={() => alternarPesoCorporal(e)}
+                        aria-pressed={Boolean(e.peso_corporal)}
+                        aria-label={`Peso corporal em ${e.nome} (vale em todos os treinos)`}
+                      >
+                        PC
+                      </button>
+                      <button
                         className="botao-apagar"
                         onClick={() => setExercicios(exercicios.filter((x) => x.id !== e.id))}
                         aria-label={`Tirar ${e.nome}`}
@@ -82,6 +101,13 @@ export default function NovoBloco({ onCriar, onFechar }) {
                   {exercicios.length === 0 ? 'Escolher exercício' : 'Outro exercício'}
                 </button>
               ) : null}
+
+              {exercicios.length > 0 && onMudarPesoCorporal && (
+                <p className="nota">
+                  PC = peso corporal (o peso de cada série é o extra). Toca em PC para ligar ou desligar: vale
+                  para o exercício em todos os treinos.
+                </p>
+              )}
 
               {tipo === 'superserie' && exercicios.length < 2 && (
                 <p className="nota">Uma super série tem 2 ou mais exercícios.</p>

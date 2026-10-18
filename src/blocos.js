@@ -95,8 +95,10 @@ export function sugestaoVolta(blocoExercicio, volta, seriesDoBloco, ultimaVez = 
   }
 }
 
-// Valida os campos de uma volta: linhas = [{ exercicio_id, reps, kg }] (texto).
-// As reps vazias saltam o exercício; o peso vazio conta como 0 kg (peso do corpo).
+// Valida os campos de uma volta: linhas = [{ exercicio_id, reps, kg, pesoCorporal?, pesoCorporalKg? }]
+// (reps e kg em texto). As reps vazias saltam o exercício; o peso vazio conta como 0 kg.
+// Nos exercícios de peso corporal (pesoCorporal: true), kg é o PESO EXTRA e pode ser negativo
+// (assistido); com o peso do corpo conhecido (pesoCorporalKg), corpo + extra tem de ser maior que 0.
 // Devolve { series: [{ exercicio_id, repeticoes, peso_kg }] } ou { erro }.
 export function validarVolta(linhas) {
   const series = []
@@ -109,7 +111,18 @@ export function validarVolta(linhas) {
     }
     const textoKg = String(linha.kg ?? '').trim()
     const peso = textoKg === '' ? 0 : lerNumero(textoKg)
-    if (peso === null || peso < 0 || peso > 9999.99) return { erro: 'Indica um peso válido (por exemplo, 62,5).' }
+    const minimo = linha.pesoCorporal ? -9999.99 : 0
+    if (peso === null || peso < minimo || peso > 9999.99) {
+      return {
+        erro: linha.pesoCorporal
+          ? 'Indica o peso extra em kg (por exemplo, 10, ou −20 se for assistido).'
+          : 'Indica um peso válido (por exemplo, 62,5).',
+      }
+    }
+    const corpo = linha.pesoCorporalKg
+    if (linha.pesoCorporal && corpo !== null && corpo !== undefined && Number(corpo) + peso <= 0) {
+      return { erro: 'O peso efetivo (corpo + extra) tem de ser maior do que 0.' }
+    }
     series.push({ exercicio_id: linha.exercicio_id, repeticoes, peso_kg: Math.round(peso * 100) / 100 })
   }
   if (series.length === 0) return { erro: 'Preenche as reps de pelo menos um exercício.' }
@@ -175,6 +188,29 @@ export function resumoEstrutura(treino) {
     .join(', ')
 }
 
+// Os nomes dos exercícios da estrutura de um treino, pela ordem e sem repetir:
+// "Supino plano, Remada +2" (até `maximo` nomes; resto = quantos ficaram de fora)
+export function exerciciosDaEstrutura(treino, maximo = 3) {
+  const nomes = [
+    ...new Set(
+      normalizarTreino(treino).blocos.flatMap((b) => b.bloco_exercicios.map((be) => be.exercicios?.nome).filter(Boolean))
+    ),
+  ]
+  return { nomes: nomes.slice(0, maximo), resto: Math.max(0, nomes.length - maximo), total: nomes.length }
+}
+
+// Nome sugerido para guardar um treino nos favoritos, a partir dos exercícios (sem os do
+// aquecimento, se houver outros): "Supino plano, Remada +2". Sem exercícios: "Treino favorito".
+export function sugerirNomeFavorito(treino, maximo = 2) {
+  const { blocos } = normalizarTreino(treino)
+  const deBlocos = (lista) => lista.flatMap((b) => b.bloco_exercicios.map((be) => be.exercicios?.nome).filter(Boolean))
+  const principais = deBlocos(blocos.filter((b) => b.tipo !== 'aquecimento'))
+  const nomes = [...new Set(principais.length > 0 ? principais : deBlocos(blocos))]
+  if (nomes.length === 0) return 'Treino favorito'
+  const resto = nomes.length - maximo
+  return `${nomes.slice(0, maximo).join(', ')}${resto > 0 ? ` +${resto}` : ''}`
+}
+
 // ---------- Resumo do treino ----------
 
 export function contarSeriesNormais(series) {
@@ -196,10 +232,11 @@ export function progressoVoltas(treino) {
 }
 
 // Resumo mostrado ao terminar ou registar um treino (o volume e as séries sem aquecimento)
-export function resumoTreino(series, duracao) {
+// carga(serie): a carga efetiva de cada série (por omissão, o peso gravado)
+export function resumoTreino(series, duracao, carga = undefined) {
   return {
     duracao,
-    volume: calcularVolume(series),
+    volume: calcularVolume(series, carga),
     numSeries: contarSeriesNormais(series),
     numExercicios: new Set(series.map((s) => s.exercicio_id)).size,
   }

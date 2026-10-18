@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useImperativeHandle, useState } from 'react'
 import { supabase } from './supabase'
+import { useAvisos } from './avisos'
+import { estruturaParaCopiar } from './blocos'
 import { buscarTreino, buscarTreinoEmCurso } from './consultas'
 import EditorTreino from './EditorTreino'
 import Esqueleto from './Esqueleto'
@@ -29,7 +31,8 @@ async function copiarEstrutura(treinoId, estrutura) {
 // nome: o nome do utilizador (para a saudação); ativo: o separador está visível;
 // onCabecalho({ titulo, hero, emCurso }): informa o cabeçalho da app (título, imagem por baixo e
 // se há um treino ao vivo, para o "Sair" avisar que o treino fica guardado).
-export default function Treino({ nome, ativo = true, onCabecalho }) {
+// ref: expõe comecarComFavorito(modo, favorito), usado pela página dos favoritos.
+export default function Treino({ ref, nome, ativo = true, onCabecalho, onVerFavoritos }) {
   const [aCarregar, setACarregar] = useState(true)
   const [falhouCarregar, setFalhouCarregar] = useState(false)
   const [treino, setTreino] = useState(null)
@@ -39,6 +42,9 @@ export default function Treino({ nome, ativo = true, onCabecalho }) {
   const [erro, setErro] = useState('')
   const [aCriar, setACriar] = useState(false)
   const [versaoInicio, setVersaoInicio] = useState(0) // muda quando um treino acaba
+  // Treino a copiar já escolhido quando a janela de novo treino abre (vindo de um favorito)
+  const [origemInicial, setOrigemInicial] = useState(null)
+  const avisar = useAvisos()
 
   // Com um treino aberto no editor, o cabeçalho mostra o título do treino (o ecrã de início trata do resto)
   const temTreino = Boolean(treino)
@@ -118,6 +124,33 @@ export default function Treino({ nome, ativo = true, onCabecalho }) {
     if (mensagem) setErro(mensagem)
   }
 
+  function abrirNovo(modoNovo, origem = null) {
+    setOrigemInicial(origem)
+    setNovo(modoNovo)
+  }
+
+  // Começar a partir de um favorito: ao vivo começa logo; passado abre a janela com ele escolhido.
+  // Com um treino aberto no editor, não começa outro (o treino em curso nunca é posto de lado).
+  function comecarComFavorito(modoNovo, favorito) {
+    if (aCarregar) {
+      avisar('Um momento: ainda estou a ver se há um treino em curso.', 'erro')
+      return
+    }
+    if (treino) {
+      avisar(
+        modo === 'aoVivo'
+          ? 'Já tens um treino em curso. Termina-o antes de começar outro.'
+          : 'Conclui o treino que estás a registar antes de começar outro.',
+        'erro'
+      )
+      return
+    }
+    if (modoNovo === 'aoVivo') repetir(estruturaParaCopiar(favorito))
+    else abrirNovo('passado', favorito)
+  }
+
+  useImperativeHandle(ref, () => ({ comecarComFavorito }))
+
   if (aCarregar) return <Esqueleto titulo numeros={3} cartoes={2} />
 
   if (falhouCarregar) {
@@ -155,12 +188,20 @@ export default function Treino({ nome, ativo = true, onCabecalho }) {
         recarregar={versaoInicio}
         resumo={resumo}
         aCriar={aCriar}
-        onComecar={() => setNovo('aoVivo')}
+        onComecar={() => abrirNovo('aoVivo')}
         onRepetir={repetir}
-        onRegistar={() => setNovo('passado')}
+        onRegistar={() => abrirNovo('passado')}
+        onVerFavoritos={onVerFavoritos}
       />
 
-      {novo && <NovoTreino modo={novo} onCriar={criarTreino} onFechar={() => setNovo(null)} />}
+      {novo && (
+        <NovoTreino
+          modo={novo}
+          origemInicial={origemInicial}
+          onCriar={criarTreino}
+          onFechar={() => setNovo(null)}
+        />
+      )}
     </div>
   )
 }

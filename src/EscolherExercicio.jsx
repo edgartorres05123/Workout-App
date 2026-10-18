@@ -3,6 +3,7 @@ import { Check, Plus, Search } from 'lucide-react'
 import { supabase } from './supabase'
 import Esqueleto from './Esqueleto'
 import Janela from './Janela'
+import VistoPesoCorporal from './VistoPesoCorporal'
 import { normalizarTexto } from './formatar'
 import { nomeMusculo, ordenarMusculos } from './musculos'
 
@@ -20,12 +21,13 @@ export default function EscolherExercicio({
   const [pesquisa, setPesquisa] = useState('')
   const [erro, setErro] = useState('')
   const [aCriar, setACriar] = useState(false)
+  const [novoPesoCorporal, setNovoPesoCorporal] = useState(false) // visto do exercício a criar
 
   useEffect(() => {
     let ativo = true
     supabase
       .from('exercicios')
-      .select('id, nome, exercicio_musculos(musculo, principal)')
+      .select('id, nome, peso_corporal, exercicio_musculos(musculo, principal)')
       .then(({ data, error }) => {
         if (!ativo) return
         if (error) {
@@ -51,8 +53,8 @@ export default function EscolherExercicio({
     setErro('')
     const { data, error } = await supabase
       .from('exercicios')
-      .insert({ nome: nomeNovo })
-      .select('id, nome')
+      .insert({ nome: nomeNovo, peso_corporal: novoPesoCorporal })
+      .select('id, nome, peso_corporal')
       .single()
     setACriar(false)
     if (error) return setErro(error.message)
@@ -83,10 +85,17 @@ export default function EscolherExercicio({
         {erro && <p className="erro">{erro}</p>}
 
         {podeCriar && (
-          <button className="botao-criar com-icone" onClick={criar} disabled={aCriar}>
-            <Plus size={18} />
-            {aCriar ? 'A criar...' : `Criar «${nomeNovo}»`}
-          </button>
+          <div className="criar-exercicio">
+            <button className="botao-criar com-icone" onClick={criar} disabled={aCriar}>
+              <Plus size={18} />
+              {aCriar ? 'A criar...' : `Criar «${nomeNovo}»`}
+            </button>
+            <VistoPesoCorporal
+              ativo={novoPesoCorporal}
+              onMudar={setNovoPesoCorporal}
+              nota="Para elevações, fundos, flexões...: o peso de cada série passa a ser o extra."
+            />
+          </div>
         )}
 
         <div className="sheet-lista">
@@ -113,7 +122,10 @@ export default function EscolherExercicio({
                 <li key={exercicio.id}>
                   <button className="opcao-exercicio" onClick={() => onEscolher(exercicio)}>
                     <span className="opcao-texto">
-                      {exercicio.nome}
+                      <span>
+                        {exercicio.nome}
+                        {exercicio.peso_corporal && <span className="etiqueta etiqueta-pc">PC</span>}
+                      </span>
                       {principais.length > 0 && (
                         <span className="opcao-musculos">
                           {principais.map((m) => nomeMusculo(m.musculo)).join(' · ')}

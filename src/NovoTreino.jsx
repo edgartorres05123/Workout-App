@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
-import { CalendarPlus, Play, Plus } from 'lucide-react'
-import { buscarTreinosParaCopiar } from './consultas'
+import { CalendarPlus, Play, Plus, Star } from 'lucide-react'
+import { buscarFavoritos, buscarTreinosParaCopiar } from './consultas'
 import Esqueleto from './Esqueleto'
 import Janela from './Janela'
 import { estruturaParaCopiar, resumoEstrutura } from './blocos'
 import { dataParaInput, formatarDataExtenso } from './formatar'
 
 // Janela para começar um treino ('aoVivo') ou registar um treino passado ('passado').
-// Dá para começar vazio ou copiar a estrutura (blocos, exercícios e alvos) de um treino anterior.
+// Dá para começar vazio ou copiar a estrutura (blocos, exercícios e alvos) de um treino anterior;
+// os favoritos aparecem primeiro. origemInicial: um treino já escolhido (vindo dos favoritos).
 // onCriar({ data, duracao_min, estrutura }) devolve uma mensagem de erro, ou null se correu bem.
-export default function NovoTreino({ modo, onCriar, onFechar }) {
+export default function NovoTreino({ modo, origemInicial = null, onCriar, onFechar }) {
   const passado = modo === 'passado'
   const [agora] = useState(() => new Date())
   const [data, setData] = useState(() => {
@@ -19,21 +20,24 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
     return dataParaInput(inicio)
   })
   const [duracao, setDuracao] = useState('60')
-  const [anteriores, setAnteriores] = useState(null) // null = a carregar
-  const [origem, setOrigem] = useState(null) // treino a copiar, ou null = vazio
+  const [anteriores, setAnteriores] = useState(null) // { favoritos, recentes }; null = a carregar
+  const [origem, setOrigem] = useState(origemInicial) // treino a copiar, ou null = vazio
   const [aCriar, setACriar] = useState(false)
   const [erro, setErro] = useState('')
 
   useEffect(() => {
     let ativo = true
-    buscarTreinosParaCopiar().then((resultado) => {
+    Promise.all([buscarFavoritos(), buscarTreinosParaCopiar()]).then(([favoritos, recentes]) => {
       if (!ativo) return
-      if (resultado.erro) {
-        setErro(resultado.erro)
-        setAnteriores([])
-      } else {
-        setAnteriores(resultado.treinos)
-      }
+      const falhou = favoritos.erro ?? recentes.erro
+      if (falhou) setErro(falhou)
+      const listaFavoritos = (favoritos.favoritos ?? []).filter((t) => t.blocos.length > 0)
+      const idsFavoritos = new Set(listaFavoritos.map((t) => t.id))
+      setAnteriores({
+        favoritos: listaFavoritos,
+        // Os treinos recentes sem repetir os que já estão nos favoritos
+        recentes: (recentes.treinos ?? []).filter((t) => !idsFavoritos.has(t.id)),
+      })
     })
     return () => {
       ativo = false
@@ -101,18 +105,22 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
             </button>
 
             {anteriores === null && <Esqueleto cartoes={3} linhas={2} />}
-            {anteriores?.length > 0 && <p className="nota">Ou copia os blocos, os exercícios e os alvos de um treino anterior:</p>}
-            {anteriores?.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={origem?.id === t.id ? 'origem ativa' : 'origem'}
-                onClick={() => setOrigem(t)}
-                aria-pressed={origem?.id === t.id}
-              >
-                <span className="origem-titulo">{formatarDataExtenso(t.data)}</span>
-                <span className="origem-detalhe">{resumoEstrutura(t)}</span>
-              </button>
+
+            {anteriores?.favoritos.length > 0 && (
+              <p className="nota com-icone">
+                <Star size={14} aria-hidden="true" />
+                Favoritos
+              </p>
+            )}
+            {anteriores?.favoritos.map((t) => (
+              <BotaoOrigem key={t.id} treino={t} titulo={t.nome_favorito || formatarDataExtenso(t.data)} favorito origem={origem} onEscolher={setOrigem} />
+            ))}
+
+            {anteriores?.recentes.length > 0 && (
+              <p className="nota">Ou copia os blocos, os exercícios e os alvos de um treino anterior:</p>
+            )}
+            {anteriores?.recentes.map((t) => (
+              <BotaoOrigem key={t.id} treino={t} titulo={formatarDataExtenso(t.data)} origem={origem} onEscolher={setOrigem} />
             ))}
           </div>
 
@@ -123,5 +131,23 @@ export default function NovoTreino({ modo, onCriar, onFechar }) {
           </button>
         </form>
     </Janela>
+  )
+}
+
+function BotaoOrigem({ treino, titulo, favorito = false, origem, onEscolher }) {
+  const escolhido = origem?.id === treino.id
+  return (
+    <button
+      type="button"
+      className={escolhido ? 'origem ativa' : 'origem'}
+      onClick={() => onEscolher(treino)}
+      aria-pressed={escolhido}
+    >
+      <span className={favorito ? 'origem-titulo com-icone' : 'origem-titulo'}>
+        {favorito && <Star size={15} className="estrela-favorito" aria-hidden="true" />}
+        {titulo}
+      </span>
+      <span className="origem-detalhe">{resumoEstrutura(treino)}</span>
+    </button>
   )
 }

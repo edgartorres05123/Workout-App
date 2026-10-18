@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChartColumn, ChevronRight, Dumbbell, Flame, Timer, Trophy, TriangleAlert } from 'lucide-react'
+import AvisoPesoCorporal from './AvisoPesoCorporal'
 import { buscarExercicios, buscarTreino, buscarTreinosTerminados } from './consultas'
+import { useCarga, usePesoCorporal } from './contextoPesoCorporal'
 import DetalheExercicio from './DetalheExercicio'
 import DetalheTreino from './DetalheTreino'
 import Esqueleto from './Esqueleto'
@@ -31,6 +33,7 @@ import {
   formatarPeso,
 } from './formatar'
 import { MUSCULOS } from './musculos'
+import { decomposicaoCarga, pesoCorporalNaData, textoCarga } from './pesoCorporal'
 
 const METRICAS = [
   { id: 'treinos', nome: 'Treinos' },
@@ -80,6 +83,7 @@ export default function PaginaEstatisticas({ onIrPara }) {
   const [diaEscolhido, setDiaEscolhido] = useState(null)
   const ultimoPedido = useRef(0)
   const scrollDaPagina = useRef(0)
+  const carga = useCarga()
 
   function carregar() {
     const id = ++ultimoPedido.current
@@ -138,11 +142,13 @@ export default function PaginaEstatisticas({ onIrPara }) {
           />
         ) : (
           <>
-            <SeccaoResumo treinos={dados.treinos} agora={agora} />
-            <SeccaoConsistencia treinos={dados.treinos} agora={agora} onEscolherDia={escolherDia} />
+            <AvisoPesoCorporal mostrar={dados.treinos.some((t) => t.series.some((s) => s.exercicios?.peso_corporal))} />
+            <SeccaoResumo treinos={dados.treinos} agora={agora} carga={carga} />
+            <SeccaoConsistencia treinos={dados.treinos} agora={agora} carga={carga} onEscolherDia={escolherDia} />
             <SeccaoRecordes
               treinos={dados.treinos}
               exercicios={dados.exercicios}
+              carga={carga}
               onAbrirTreino={abrirTreino}
               onAbrirExercicio={(id) => abrirVista({ tipo: 'exercicio', id })}
             />
@@ -150,6 +156,7 @@ export default function PaginaEstatisticas({ onIrPara }) {
               treinos={dados.treinos}
               exercicios={dados.exercicios}
               agora={agora}
+              carga={carga}
               onCompletar={() => onIrPara('exercicios', { soSemMusculos: true })}
             />
           </>
@@ -202,14 +209,14 @@ export default function PaginaEstatisticas({ onIrPara }) {
 
 // ---------- a) Resumo ----------
 
-function SeccaoResumo({ treinos, agora }) {
+function SeccaoResumo({ treinos, agora, carga }) {
   const [metrica, setMetrica] = useState('volume')
   const [unidade, setUnidade] = useState('semana')
 
-  const resumo = useMemo(() => resumoPeriodos(treinos, metrica, agora), [treinos, metrica, agora])
+  const resumo = useMemo(() => resumoPeriodos(treinos, metrica, agora, carga), [treinos, metrica, agora, carga])
   const serie = useMemo(
-    () => serieTemporal(treinos, metrica, unidade, agora),
-    [treinos, metrica, unidade, agora]
+    () => serieTemporal(treinos, metrica, unidade, agora, 12, carga),
+    [treinos, metrica, unidade, agora, carga]
   )
 
   const dados = useMemo(
@@ -305,8 +312,8 @@ function CartaoNumero({ rotulo, valor }) {
 
 // ---------- b) Consistência ----------
 
-function SeccaoConsistencia({ treinos, agora, onEscolherDia }) {
-  const porDia = useMemo(() => treinosPorDia(treinos), [treinos])
+function SeccaoConsistencia({ treinos, agora, carga, onEscolherDia }) {
+  const porDia = useMemo(() => treinosPorDia(treinos, carga), [treinos, carga])
   const semanas = useMemo(() => grelhaCalor(agora, 6), [agora])
   const sequencias = useMemo(() => sequenciasSemanas(treinos, agora), [treinos, agora])
 
@@ -403,6 +410,7 @@ function Indicador({ valor, rotulo }) {
 }
 
 function TreinosDoDia({ dia, onAbrir, onFechar }) {
+  const carga = useCarga()
   return (
     <Janela titulo={formatarDataExtenso(dia.treinos[0].data)} onFechar={onFechar} baixa>
         <ul className="lista">
@@ -412,7 +420,7 @@ function TreinosDoDia({ dia, onAbrir, onFechar }) {
                 <span className="opcao-texto">
                   {formatarHora(treino.data)}
                   <span className="opcao-musculos">
-                    {formatarMinutos(treino.duracao_min)} · {abreviarNumero(calcularVolume(treino.series))} kg
+                    {formatarMinutos(treino.duracao_min)} · {abreviarNumero(calcularVolume(treino.series, (s) => carga(s, treino.data)))} kg
                   </span>
                 </span>
                 <ChevronRight size={20} className="seta" aria-hidden="true" />
@@ -426,10 +434,16 @@ function TreinosDoDia({ dia, onAbrir, onFechar }) {
 
 // ---------- c) Recordes ----------
 
-function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }) {
-  const recordes = useMemo(() => recordesGerais(treinos), [treinos])
+function SeccaoRecordes({ treinos, exercicios, carga, onAbrirTreino, onAbrirExercicio }) {
+  const recordes = useMemo(() => recordesGerais(treinos, carga), [treinos, carga])
   const nomes = useMemo(() => new Map(exercicios.map((e) => [e.id, e.nome])), [exercicios])
+  const { medicoes } = usePesoCorporal()
   const { maiorPeso, maisReps, maiorVolume, maisLongo } = recordes
+  // Nos exercícios de peso corporal, o maior peso mostra a decomposição: "84,5 kg" + "PC 74,5 + 10"
+  const pesoCorporalMaior = Boolean(maiorPeso?.serie.exercicios?.peso_corporal)
+  const decomposicao = pesoCorporalMaior
+    ? decomposicaoCarga(maiorPeso.serie.peso_kg, pesoCorporalNaData(medicoes, maiorPeso.treino.data))
+    : null
 
   const cartoes = []
   if (maiorPeso) {
@@ -437,8 +451,13 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
       id: 'peso',
       icone: Dumbbell,
       rotulo: 'Maior peso',
-      valor: `${formatarPeso(maiorPeso.serie.peso_kg)} kg`,
-      detalhe: `${nomes.get(maiorPeso.serie.exercicio_id) ?? '—'} · ${maiorPeso.serie.repeticoes} reps`,
+      valor:
+        pesoCorporalMaior && !decomposicao
+          ? textoCarga(maiorPeso.serie.peso_kg, true)
+          : `${formatarPeso(maiorPeso.carga)} kg`,
+      detalhe: [nomes.get(maiorPeso.serie.exercicio_id) ?? '—', decomposicao && `(${decomposicao})`, `${maiorPeso.serie.repeticoes} reps`]
+        .filter(Boolean)
+        .join(' · '),
       data: maiorPeso.treino.data,
       abrir: () => onAbrirExercicio(maiorPeso.serie.exercicio_id),
     })
@@ -449,7 +468,7 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
       icone: Trophy,
       rotulo: 'Mais repetições',
       valor: `${maisReps.serie.repeticoes} reps`,
-      detalhe: `${nomes.get(maisReps.serie.exercicio_id) ?? '—'} · ${formatarPeso(maisReps.serie.peso_kg)} kg`,
+      detalhe: `${nomes.get(maisReps.serie.exercicio_id) ?? '—'} · ${textoCarga(maisReps.serie.peso_kg, maisReps.serie.exercicios?.peso_corporal)}`,
       data: maisReps.treino.data,
       abrir: () => onAbrirExercicio(maisReps.serie.exercicio_id),
     })
@@ -471,7 +490,7 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
       icone: Timer,
       rotulo: 'Treino mais longo',
       valor: formatarMinutos(maisLongo.valor),
-      detalhe: `${abreviarNumero(calcularVolume(maisLongo.treino.series))} kg de volume`,
+      detalhe: `${abreviarNumero(calcularVolume(maisLongo.treino.series, (s) => carga(s, maisLongo.treino.data)))} kg de volume`,
       data: maisLongo.treino.data,
       abrir: () => onAbrirTreino(maisLongo.treino.id),
     })
@@ -509,7 +528,7 @@ function SeccaoRecordes({ treinos, exercicios, onAbrirTreino, onAbrirExercicio }
 
 // ---------- d) Músculos trabalhados ----------
 
-function SeccaoMusculos({ treinos, exercicios, agora, onCompletar }) {
+function SeccaoMusculos({ treinos, exercicios, agora, carga, onCompletar }) {
   const [periodo, setPeriodo] = useState('3m')
 
   const musculosPorExercicio = useMemo(
@@ -517,8 +536,8 @@ function SeccaoMusculos({ treinos, exercicios, agora, onCompletar }) {
     [exercicios]
   )
   const { valores, total, semMusculos } = useMemo(
-    () => volumePorMusculo(treinos, musculosPorExercicio, inicioPeriodo(periodo, agora)),
-    [treinos, musculosPorExercicio, periodo, agora]
+    () => volumePorMusculo(treinos, musculosPorExercicio, inicioPeriodo(periodo, agora), carga),
+    [treinos, musculosPorExercicio, periodo, agora, carga]
   )
 
   const percentagem = (v) => (total > 0 ? (v / total) * 100 : 0)

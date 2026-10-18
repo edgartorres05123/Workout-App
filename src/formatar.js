@@ -12,19 +12,25 @@ export function pesoParaInput(kg) {
   return String(Number(kg)).replace('.', ',')
 }
 
-// Lê um número escrito pelo utilizador, aceitando vírgula ou ponto. Devolve null se for inválido.
+// Lê um número escrito pelo utilizador, aceitando vírgula ou ponto (e o sinal − tipográfico).
+// Devolve null se for inválido.
 export function lerNumero(texto) {
-  const limpo = String(texto).trim().replace(',', '.')
+  const limpo = String(texto).trim().replace(',', '.').replace('−', '-')
   if (limpo === '') return null
   const numero = Number(limpo)
   return Number.isFinite(numero) ? numero : null
 }
 
-// Soma de repetições × peso, sem contar as séries de aquecimento
-export function calcularVolume(series) {
+// Peso de uma série tal como está gravado (a carga dos exercícios que não são de peso corporal)
+const pesoDaSerie = (s) => Number(s.peso_kg)
+
+// Soma de repetições × peso, sem contar as séries de aquecimento.
+// carga(serie): o peso a usar em cada série (nos exercícios de peso corporal, inclui o corpo;
+// ver pesoCorporal.js). Por omissão, o peso gravado na série.
+export function calcularVolume(series, carga = pesoDaSerie) {
   return series
     .filter((s) => !s.aquecimento)
-    .reduce((total, s) => total + s.repeticoes * Number(s.peso_kg), 0)
+    .reduce((total, s) => total + s.repeticoes * carga(s), 0)
 }
 
 // 754 -> "12:34"; 3754 -> "1:02:34"
@@ -127,12 +133,12 @@ export function calcular1RM(repeticoes, pesoKg) {
   return repeticoes === 1 ? peso : peso * (1 + repeticoes / 30)
 }
 
-// A série (sem aquecimento) com maior 1RM estimado, ou null
-export function melhorSerie(series) {
+// A série (sem aquecimento) com maior 1RM estimado, ou null. carga(serie) como em calcularVolume.
+export function melhorSerie(series, carga = pesoDaSerie) {
   let melhor = null
   for (const s of series) {
     if (s.aquecimento) continue
-    if (!melhor || calcular1RM(s.repeticoes, s.peso_kg) > calcular1RM(melhor.repeticoes, melhor.peso_kg)) {
+    if (!melhor || calcular1RM(s.repeticoes, carga(s)) > calcular1RM(melhor.repeticoes, carga(melhor))) {
       melhor = s
     }
   }

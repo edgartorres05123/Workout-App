@@ -30,10 +30,11 @@ export function diasDaSemanaAtual(treinos, agora) {
   })
 }
 
-// Treinos esta semana, sequência atual de semanas seguidas e volume desta semana
-export function resumoSemana(treinos, agora) {
+// Treinos esta semana, sequência atual de semanas seguidas e volume desta semana.
+// carga(serie, data): carga efetiva (por omissão, o peso da série)
+export function resumoSemana(treinos, agora, carga) {
   const { treinosEstaSemana, atual } = sequenciasSemanas(treinos, agora)
-  const [semana] = serieTemporal(treinos, 'volume', 'semana', agora, 1)
+  const [semana] = serieTemporal(treinos, 'volume', 'semana', agora, 1, carga)
   return { treinos: treinosEstaSemana, sequencia: atual, volume: semana.valor }
 }
 

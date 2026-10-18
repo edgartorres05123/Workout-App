@@ -4,6 +4,7 @@ import Confirmar from './Confirmar'
 import EscolherExercicio from './EscolherExercicio'
 import IconeBloco from './IconeBloco'
 import Janela from './Janela'
+import VistoPesoCorporal from './VistoPesoCorporal'
 import { TIPOS_BLOCO, letraExercicio, motivoTipoIndisponivel } from './blocos'
 import { lerNumero, pesoParaInput } from './formatar'
 
@@ -22,6 +23,7 @@ export default function OpcoesBloco({
   onRemoverExercicio,
   onAtualizarExercicio,
   onMoverExercicio,
+  onMudarPesoCorporal,
   onFechar,
 }) {
   const [aEscolher, setAEscolher] = useState(false)
@@ -155,10 +157,19 @@ export default function OpcoesBloco({
                   </button>
                 </div>
                 <Alvos
-                  key={`${be.id}-${be.reps_alvo}-${be.peso_alvo}`}
+                  key={`${be.id}-${be.reps_alvo}-${be.peso_alvo}-${Boolean(be.exercicios?.peso_corporal)}`}
                   blocoExercicio={be}
+                  pesoCorporal={Boolean(be.exercicios?.peso_corporal)}
                   onGuardar={(campos) => executar(() => onAtualizarExercicio(be.id, campos))}
                 />
+                {be.exercicios && onMudarPesoCorporal && (
+                  <VistoPesoCorporal
+                    ativo={Boolean(be.exercicios.peso_corporal)}
+                    desativado={aGravar}
+                    nota="Vale para este exercício em todos os treinos: o peso passa a ser o extra."
+                    onMudar={(valor) => executar(() => onMudarPesoCorporal(be.exercicios, valor))}
+                  />
+                )}
               </li>
             ))}
           </ul>
@@ -236,8 +247,9 @@ export default function OpcoesBloco({
   )
 }
 
-// Reps-alvo e peso-alvo de um exercício do bloco; gravam ao sair do campo
-function Alvos({ blocoExercicio, onGuardar }) {
+// Reps-alvo e peso-alvo de um exercício do bloco; gravam ao sair do campo.
+// Nos exercícios de peso corporal, o peso-alvo é o EXTRA e pode ser negativo (assistido).
+function Alvos({ blocoExercicio, pesoCorporal = false, onGuardar }) {
   const [reps, setReps] = useState(String(blocoExercicio.reps_alvo ?? ''))
   const [kg, setKg] = useState(
     blocoExercicio.peso_alvo === null || blocoExercicio.peso_alvo === undefined ? '' : pesoParaInput(blocoExercicio.peso_alvo)
@@ -255,11 +267,12 @@ function Alvos({ blocoExercicio, onGuardar }) {
     if (valor !== blocoExercicio.reps_alvo) onGuardar({ reps_alvo: valor })
   }
 
-  function guardarKg() {
-    const texto = kg.trim()
+  function guardarKg(textoEscolhido = kg) {
+    const texto = textoEscolhido.trim()
     const valor = texto === '' ? null : lerNumero(texto)
-    if (texto !== '' && (valor === null || valor < 0 || valor > 9999.99)) {
-      setErro('Indica um peso-alvo válido, ou deixa vazio.')
+    const minimo = pesoCorporal ? -9999.99 : 0
+    if (texto !== '' && (valor === null || valor < minimo || valor > 9999.99)) {
+      setErro(pesoCorporal ? 'Indica o extra-alvo em kg (− se for assistido), ou deixa vazio.' : 'Indica um peso-alvo válido, ou deixa vazio.')
       setKg(blocoExercicio.peso_alvo === null ? '' : pesoParaInput(blocoExercicio.peso_alvo))
       return
     }
@@ -286,16 +299,44 @@ function Alvos({ blocoExercicio, onGuardar }) {
           />
         </label>
         <label>
-          <span>Peso-alvo (kg, opcional)</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="—"
-            value={kg}
-            onChange={(e) => setKg(e.target.value)}
-            onBlur={guardarKg}
-            onKeyDown={sairComEnter}
-          />
+          <span>{pesoCorporal ? '+ kg extra (alvo, opcional)' : 'Peso-alvo (kg, opcional)'}</span>
+          {pesoCorporal ? (
+            <span className="campo-com-sinal">
+              <button
+                type="button"
+                className={kg.trim().startsWith('-') ? 'botao-sinal negativo' : 'botao-sinal'}
+                onClick={() => {
+                  const negativo = kg.trim().startsWith('-')
+                  const absoluto = kg.trim().replace(/^-/, '') || '0'
+                  const novo = negativo ? absoluto : `-${absoluto}`
+                  setKg(novo)
+                  guardarKg(novo)
+                }}
+                aria-label="Trocar entre peso extra (+) e assistido (−)"
+              >
+                {kg.trim().startsWith('-') ? '−' : '+'}
+              </button>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="—"
+                value={kg.trim().replace(/^-/, '')}
+                onChange={(e) => setKg(`${kg.trim().startsWith('-') ? '-' : ''}${e.target.value.replace(/[-−]/g, '')}`)}
+                onBlur={() => guardarKg()}
+                onKeyDown={sairComEnter}
+              />
+            </span>
+          ) : (
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="—"
+              value={kg}
+              onChange={(e) => setKg(e.target.value)}
+              onBlur={() => guardarKg()}
+              onKeyDown={sairComEnter}
+            />
+          )}
         </label>
       </div>
       {erro && <p className="erro">{erro}</p>}

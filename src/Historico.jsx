@@ -3,6 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Clock, Layers, Timer, Weight, 
 import { supabase } from './supabase'
 import { SELECT_TREINO } from './consultas'
 import DetalheTreino from './DetalheTreino'
+import { useCarga } from './contextoPesoCorporal'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
 import {
@@ -200,6 +201,7 @@ export default function Historico() {
 }
 
 function CartaoTreino({ treino, onAbrir }) {
+  const carga = useCarga()
   const numSeries = treino.series.filter((s) => !s.aquecimento).length
   const nomes = agruparPorExercicio(treino.series).map((g) => g.exercicio.nome)
   const resto = nomes.length - MAX_NOMES
@@ -220,7 +222,7 @@ function CartaoTreino({ treino, onAbrir }) {
         </span>
         <span className="com-icone">
           <Weight size={15} aria-hidden="true" />
-          {formatarPeso(calcularVolume(treino.series))} kg
+          {formatarPeso(calcularVolume(treino.series, (s) => carga(s, treino.data)))} kg
         </span>
         <span className="com-icone">
           <Layers size={15} aria-hidden="true" />

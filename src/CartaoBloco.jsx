@@ -3,8 +3,9 @@ import { Check, Ellipsis, History, Minus, Plus, Target } from 'lucide-react'
 import { supabase } from './supabase'
 import IconeBloco from './IconeBloco'
 import { estadoVoltas, letraExercicio, sugestaoVolta, validarVolta } from './blocos'
-import { formatarPeso, pesoParaInput } from './formatar'
+import { pesoParaInput } from './formatar'
 import { vibrar } from './movimento'
+import { textoCarga, textoSerie } from './pesoCorporal'
 
 // Última série deste exercício num treino anterior: de aquecimento nos blocos de aquecimento,
 // normal nos outros
@@ -21,12 +22,14 @@ function buscarUltimaVez(exercicioId, aquecimento, antesDe) {
 }
 
 // Um bloco no editor: exercícios com os alvos e a última vez, e as voltas com os campos e o ✓.
-// As funções on* devolvem uma mensagem de erro, ou null se correu bem.
+// Nos exercícios de peso corporal (etiqueta PC), o peso é o extra. pesoCorporalKg: o peso do corpo
+// na data do treino (null se desconhecido), para validar. As on* devolvem uma mensagem de erro, ou null.
 export default function CartaoBloco({
   bloco,
   titulo,
   series,
   dataTreino,
+  pesoCorporalKg = null,
   onOpcoes,
   onMudarVoltas,
   onGravarVolta,
@@ -77,20 +80,29 @@ export default function CartaoBloco({
         <ul className="bloco-exercicios">
           {exercicios.map((be, i) => {
             const ultima = ultimas[be.exercicio_id]
+            const pc = Boolean(be.exercicios?.peso_corporal)
+            const temAlvoPeso = be.peso_alvo !== null && be.peso_alvo !== undefined
             return (
               <li key={be.id}>
                 {exercicios.length > 1 && <span className="letra">{letraExercicio(i)}</span>}
                 <span className="bloco-exercicio-texto">
-                  <span className="bloco-exercicio-nome">{be.exercicios?.nome ?? '—'}</span>
+                  <span className="bloco-exercicio-nome">
+                    {be.exercicios?.nome ?? '—'}
+                    {pc && (
+                      <span className="etiqueta etiqueta-pc" title="Peso corporal: o peso é o extra">
+                        PC
+                      </span>
+                    )}
+                  </span>
                   <span className="bloco-exercicio-alvo com-icone">
                     <Target size={13} aria-hidden="true" />
                     Alvo: {be.reps_alvo} reps
-                    {be.peso_alvo !== null && be.peso_alvo !== undefined && ` × ${formatarPeso(be.peso_alvo)} kg`}
+                    {(temAlvoPeso || pc) && ` × ${textoCarga(be.peso_alvo ?? 0, pc)}`}
                   </span>
                   {ultima && (
                     <span className="bloco-exercicio-alvo com-icone">
                       <History size={13} aria-hidden="true" />
-                      Última vez: {ultima.repeticoes} × {formatarPeso(ultima.peso_kg)} kg
+                      Última vez: {textoSerie(ultima.repeticoes, ultima.peso_kg, pc)}
                     </span>
                   )}
                 </span>
@@ -113,6 +125,7 @@ export default function CartaoBloco({
             exercicios={exercicios}
             seriesDoBloco={series}
             ultimas={ultimas}
+            pesoCorporalKg={pesoCorporalKg}
             onGravar={(lista) => onGravarVolta(estado.volta, lista)}
             onDesfazer={() => onDesfazerVolta(estado.volta)}
             onGuardarSerie={(exercicioId, dados) => onGuardarSerie(estado.volta, exercicioId, dados)}
@@ -145,7 +158,17 @@ export default function CartaoBloco({
 // Uma volta: os campos de reps e peso de cada exercício e o ✓.
 // ✓ grava a volta inteira (as reps vazias saltam o exercício); tocar outra vez desfaz a volta.
 // Numa volta já feita, cada campo grava ao sair (reps vazias apagam essa série).
-function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, onDesfazer, onGuardarSerie }) {
+function Volta({
+  numero,
+  estado,
+  exercicios,
+  seriesDoBloco,
+  ultimas,
+  pesoCorporalKg,
+  onGravar,
+  onDesfazer,
+  onGuardarSerie,
+}) {
   const [editados, setEditados] = useState({}) // exercicio_id → { reps?, kg? } escritos à mão
   const [aGravar, setAGravar] = useState(false)
   const [erro, setErro] = useState('')
@@ -162,6 +185,16 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
 
   function mudar(exercicioId, campo, valor) {
     setEditados((atuais) => ({ ...atuais, [exercicioId]: { ...atuais[exercicioId], [campo]: valor } }))
+  }
+
+  // Linha para validar: nos exercícios de peso corporal, o kg é o extra (pode ser negativo)
+  function linha(be, campos) {
+    return {
+      exercicio_id: be.exercicio_id,
+      ...campos,
+      pesoCorporal: Boolean(be.exercicios?.peso_corporal),
+      pesoCorporalKg,
+    }
   }
 
   function esquecer(exercicioId) {
@@ -181,7 +214,7 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
       return
     }
 
-    const resultado = validarVolta(exercicios.map((be) => ({ exercicio_id: be.exercicio_id, ...valores(be) })))
+    const resultado = validarVolta(exercicios.map((be) => linha(be, valores(be))))
     if (resultado.erro) return setErro(resultado.erro)
     setAGravar(true)
     const mensagem = await onGravar(resultado.series)
@@ -197,7 +230,7 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
     const { reps, kg } = valores(be)
     let dados = null
     if (reps.trim() !== '') {
-      const resultado = validarVolta([{ exercicio_id: be.exercicio_id, reps, kg }])
+      const resultado = validarVolta([linha(be, { reps, kg })])
       if (resultado.erro) {
         setErro(resultado.erro)
         esquecer(be.exercicio_id)
@@ -237,18 +270,30 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
                 onBlur={() => sairDoCampo(be)}
                 aria-label={`Reps de ${nome}, volta ${numero}`}
               />
-              <span className="vezes">×</span>
-              <input
-                type="text"
-                inputMode="decimal"
-                className="campo-kg"
-                value={kg}
-                placeholder="0"
-                onChange={(e) => mudar(be.exercicio_id, 'kg', e.target.value)}
-                onBlur={() => sairDoCampo(be)}
-                aria-label={`Peso em kg de ${nome}, volta ${numero}`}
-              />
-              <span className="unidade">kg</span>
+              {be.exercicios?.peso_corporal ? (
+                <CampoExtra
+                  valor={kg}
+                  nome={nome}
+                  numero={numero}
+                  onMudar={(valor) => mudar(be.exercicio_id, 'kg', valor)}
+                  onSair={() => sairDoCampo(be)}
+                />
+              ) : (
+                <>
+                  <span className="vezes">×</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="campo-kg"
+                    value={kg}
+                    placeholder="0"
+                    onChange={(e) => mudar(be.exercicio_id, 'kg', e.target.value)}
+                    onBlur={() => sairDoCampo(be)}
+                    aria-label={`Peso em kg de ${nome}, volta ${numero}`}
+                  />
+                  <span className="unidade">kg</span>
+                </>
+              )}
             </div>
           )
         })}
@@ -265,5 +310,40 @@ function Volta({ numero, estado, exercicios, seriesDoBloco, ultimas, onGravar, o
       </button>
       {erro && <p className="erro volta-erro">{erro}</p>}
     </div>
+  )
+}
+
+// Peso extra de um exercício de peso corporal: "× PC + [10] kg". O botão +/− troca o sinal (o teclado
+// decimal do iPhone não tem a tecla −); o campo mostra só o valor, sem sinal. Vazio ou 0 = só o corpo.
+function CampoExtra({ valor, nome, numero, onMudar, onSair }) {
+  const texto = String(valor ?? '')
+  const negativo = /^\s*[-−]/.test(texto)
+  const absoluto = texto.replace(/^\s*[-−]\s*/, '')
+  const juntar = (sinalNegativo, numeroTexto) => (sinalNegativo && numeroTexto !== '' ? `-${numeroTexto}` : numeroTexto)
+
+  return (
+    <>
+      <span className="vezes">× PC</span>
+      <button
+        type="button"
+        className={negativo ? 'botao-sinal negativo' : 'botao-sinal'}
+        onClick={() => onMudar(juntar(!negativo, absoluto || '0'))}
+        onBlur={onSair}
+        aria-label={negativo ? 'Peso assistido (a menos). Tocar para mais' : 'Peso extra (a mais). Tocar para menos'}
+      >
+        {negativo ? '−' : '+'}
+      </button>
+      <input
+        type="text"
+        inputMode="decimal"
+        className="campo-kg"
+        value={absoluto}
+        placeholder="0"
+        onChange={(e) => onMudar(juntar(negativo, e.target.value.replace(/[-−]/g, '')))}
+        onBlur={onSair}
+        aria-label={`Kg extra de ${nome}, volta ${numero} (${negativo ? 'a menos, assistido' : 'a mais'})`}
+      />
+      <span className="unidade">kg</span>
+    </>
   )
 }

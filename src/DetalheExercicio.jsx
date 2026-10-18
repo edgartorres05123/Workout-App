@@ -1,13 +1,16 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Merge, Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
+import AvisoPesoCorporal from './AvisoPesoCorporal'
 import { buscarTreino, buscarTudo } from './consultas'
+import { useCarga, usePesoCorporal } from './contextoPesoCorporal'
 import Confirmar from './Confirmar'
 import DetalheTreino from './DetalheTreino'
 import EscolherExercicio from './EscolherExercicio'
 import Esqueleto from './Esqueleto'
 import Numero from './Numero'
+import VistoPesoCorporal from './VistoPesoCorporal'
 import { resumoExercicio, sessoesPorTreino } from './estatisticas'
 import {
   formatarDataCurta,
@@ -17,6 +20,7 @@ import {
   nomesIguais,
 } from './formatar'
 import { MUSCULOS, proximoEstado } from './musculos'
+import { decomposicaoCarga, pesoCorporalNaData, textoCarga, textoSerie } from './pesoCorporal'
 
 // Os gráficos (Chart.js) só são descarregados quando são precisos
 const EvolucaoExercicio = lazy(() => import('./EvolucaoExercicio'))
@@ -58,6 +62,17 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
   const [treinoAberto, setTreinoAberto] = useState(null)
   const scrollDoExercicio = useRef(0)
   const avisar = useAvisos()
+  // Carga efetiva: neste exercício, o peso corporal entra (ou não) conforme o visto
+  const ehPesoCorporal = useCallback(() => Boolean(exercicio.peso_corporal), [exercicio.peso_corporal])
+  const carga = useCarga(ehPesoCorporal)
+  const { medicoes } = usePesoCorporal()
+
+  async function mudarPesoCorporal(valor) {
+    const { error } = await supabase.from('exercicios').update({ peso_corporal: valor }).eq('id', exercicio.id)
+    if (error) return avisar(error.message, 'erro')
+    onAlterar((ex) => ({ ...ex, peso_corporal: valor }))
+    avisar(valor ? 'Peso corporal ligado' : 'Peso corporal desligado')
+  }
 
   useEffect(() => {
     let ativo = true
@@ -184,8 +199,14 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
     requestAnimationFrame(() => window.scrollTo(0, scrollDoExercicio.current))
   }
 
-  const resumo = series && resumoExercicio(series)
+  const pc = Boolean(exercicio.peso_corporal)
+  const resumo = series && resumoExercicio(series, carga)
   const sessoes = series ? sessoesPorTreino(series) : []
+  // Decomposição do recorde de peso nos exercícios de peso corporal: "PC 74,5 + 10"
+  const decomposicaoRecorde =
+    pc && resumo
+      ? decomposicaoCarga(resumo.recordePeso.peso_kg, pesoCorporalNaData(medicoes, resumo.recordePeso.treinos.data))
+      : null
 
   return (
     <div className="vista-detalhe">
@@ -210,6 +231,14 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
         <Musculos exercicio={exercicio} onAlterar={onAlterar} />
 
         <div className="cartao">
+          <VistoPesoCorporal
+            ativo={pc}
+            onMudar={mudarPesoCorporal}
+            nota="Para elevações, fundos, flexões...: o peso de cada série passa a ser o extra (negativo se for assistido) e as contas somam o teu peso nessa data. Vale para todos os treinos."
+          />
+        </div>
+
+        <div className="cartao">
           <h2>Resumo</h2>
           {series === null ? (
             <Esqueleto cartoes={1} linhas={3} />
@@ -220,25 +249,26 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
               <Numero valor={resumo.numTreinos} rotulo={resumo.numTreinos === 1 ? 'Treino' : 'Treinos'} />
               <Numero
                 valor={`${formatarPeso(Math.round(resumo.melhor1RM * 10) / 10)} kg`}
-                rotulo={`1RM estimado · ${resumo.melhor.repeticoes} × ${formatarPeso(resumo.melhor.peso_kg)} kg`}
+                rotulo={`1RM estimado · ${textoSerie(resumo.melhor.repeticoes, resumo.melhor.peso_kg, pc)}`}
               />
               <Numero
-                valor={`${formatarPeso(resumo.recordePeso.peso_kg)} kg`}
-                rotulo={`Recorde de peso · ${resumo.recordePeso.repeticoes} reps`}
+                valor={pc && !decomposicaoRecorde ? textoCarga(resumo.recordePeso.peso_kg, true) : `${formatarPeso(resumo.recordeCarga)} kg`}
+                rotulo={`Recorde de peso · ${decomposicaoRecorde ? `${decomposicaoRecorde} · ` : ''}${resumo.recordePeso.repeticoes} reps`}
               />
               <Numero
                 valor={`${resumo.maisReps.repeticoes} reps`}
-                rotulo={`Mais repetições · ${formatarPeso(resumo.maisReps.peso_kg)} kg`}
+                rotulo={`Mais repetições · ${textoCarga(resumo.maisReps.peso_kg, pc)}`}
               />
               <Numero valor={formatarDataCurta(resumo.primeira)} rotulo="Primeira vez" />
               <Numero valor={formatarDataCurta(resumo.ultima)} rotulo="Última vez" />
             </div>
           )}
+          <AvisoPesoCorporal mostrar={pc} />
         </div>
 
         {resumo && (
           <Suspense fallback={<Esqueleto cartoes={2} linhas={4} />}>
-            <EvolucaoExercicio series={series} onAbrirTreino={abrirTreino} />
+            <EvolucaoExercicio series={series} carga={carga} pesoCorporal={pc} onAbrirTreino={abrirTreino} />
           </Suspense>
         )}
 
@@ -258,10 +288,9 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
                         <span key={s.id} className={s.aquecimento ? 'aquecimento' : undefined}>
                           {i > 0 && ' · '}
                           {s.aquecimento && 'A '}
-                          {s.repeticoes} × {formatarPeso(s.peso_kg)}
+                          {textoSerie(s.repeticoes, s.peso_kg, pc)}
                         </span>
                       ))}
-                      {' kg'}
                     </span>
                   </button>
                 </li>

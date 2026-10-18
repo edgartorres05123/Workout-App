@@ -1,11 +1,13 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Ruler } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Ruler, Scale } from 'lucide-react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
 import { buscarMedicoes } from './consultas'
+import { usePesoCorporal } from './contextoPesoCorporal'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
 import FormMedicao from './FormMedicao'
+import Janela from './Janela'
 import Pilulas from './Pilulas'
 import {
   calcularIdade,
@@ -15,6 +17,7 @@ import {
   diferencaCampo,
   ordenarMedicoes,
   validarAltura,
+  validarMedicao,
   validarNascimento,
 } from './corpo'
 import { dataDeChave } from './estatisticas'
@@ -54,6 +57,9 @@ export default function Perfil({ email, nome, utilizadorId, onVoltar }) {
   const [erro, setErro] = useState('')
   // undefined = fechado; null = nova medição; objeto = editar essa medição
   const [medicaoAberta, setMedicaoAberta] = useState(undefined)
+  const [aPesar, setAPesar] = useState(false)
+  // O peso corporal (usado nos exercícios de peso corporal) vem das medições: avisa o resto da app
+  const { recarregar } = usePesoCorporal()
 
   useEffect(() => {
     let ativo = true
@@ -77,11 +83,14 @@ export default function Perfil({ email, nome, utilizadorId, onVoltar }) {
       medicoes: ordenarMedicoes([...atuais.medicoes.filter((m) => m.id !== medicao.id), medicao]),
     }))
     setMedicaoAberta(undefined)
+    setAPesar(false)
+    recarregar()
   }
 
   function medicaoApagada(id) {
     setDados((atuais) => ({ ...atuais, medicoes: atuais.medicoes.filter((m) => m.id !== id) }))
     setMedicaoAberta(undefined)
+    recarregar()
   }
 
   function indicarAltura() {
@@ -114,10 +123,16 @@ export default function Perfil({ email, nome, utilizadorId, onVoltar }) {
 
           <div className="cabecalho-seccao">
             <h2 className="titulo-seccao">Medições corporais</h2>
-            <button className="botao-pequeno com-icone" onClick={() => setMedicaoAberta(null)}>
-              <Plus size={16} />
-              Nova medição
-            </button>
+            <div className="cabecalho-seccao-acoes">
+              <button className="botao-pequeno botao-secundario com-icone" onClick={() => setAPesar(true)}>
+                <Scale size={16} />
+                Registar peso
+              </button>
+              <button className="botao-pequeno com-icone" onClick={() => setMedicaoAberta(null)}>
+                <Plus size={16} />
+                Nova medição
+              </button>
+            </div>
           </div>
 
           {dados.medicoes.length === 0 ? (
@@ -151,7 +166,60 @@ export default function Perfil({ email, nome, utilizadorId, onVoltar }) {
           onFechar={() => setMedicaoAberta(undefined)}
         />
       )}
+
+      {aPesar && <PesagemRapida onGuardada={medicaoGuardada} onFechar={() => setAPesar(false)} />}
     </div>
+  )
+}
+
+// Pesagem rápida: uma medição só com a data de hoje e o peso (o resto fica vazio)
+function PesagemRapida({ onGuardada, onFechar }) {
+  const [hoje] = useState(() => new Date())
+  const [peso, setPeso] = useState('')
+  const [erro, setErro] = useState('')
+  const [aGravar, setAGravar] = useState(false)
+  const avisar = useAvisos()
+
+  async function guardar(e) {
+    e.preventDefault()
+    const { erros, dados } = validarMedicao({ data: chaveDia(hoje), peso_kg: peso }, hoje)
+    if (erros.peso_kg) return setErro(erros.peso_kg === 'Obrigatório.' ? 'Indica o peso.' : erros.peso_kg)
+    setErro('')
+    setAGravar(true)
+    const { data, error } = await supabase
+      .from('medicoes')
+      .insert({ data: dados.data, peso_kg: dados.peso_kg })
+      .select('*')
+      .single()
+    setAGravar(false)
+    if (error) return setErro(error.message)
+    avisar('Peso registado')
+    onGuardada(data)
+  }
+
+  return (
+    <Janela titulo="Registar peso" onFechar={onFechar} baixa>
+      <form className="sheet-lista" onSubmit={guardar}>
+        <p className="subtitulo">Hoje, {formatarDataExtenso(hoje)}. Os outros valores ficam vazios.</p>
+        <label className="campo">
+          <span className="campo-rotulo">Peso (kg)</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="Ex: 74,5"
+            value={peso}
+            onChange={(e) => setPeso(e.target.value)}
+            autoFocus
+            enterKeyHint="done"
+          />
+        </label>
+        {erro && <p className="erro">{erro}</p>}
+        <button type="submit" className="com-icone" disabled={aGravar}>
+          <Scale size={18} />
+          {aGravar ? 'A gravar...' : 'Guardar'}
+        </button>
+      </form>
+    </Janela>
   )
 }
 

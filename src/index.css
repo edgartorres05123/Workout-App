@@ -2025,3 +2025,187 @@ button,
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- Peso corporal (PC) ---------- */
+
+.etiqueta-pc { background: var(--azul-fundo); color: var(--azul); }
+
+.visto-pc { margin-top: var(--e-3); }
+.cartao > .visto-pc:first-child { margin-top: 0; }
+
+.visto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--toque);
+  font-weight: var(--p-forte);
+  cursor: pointer;
+}
+
+.visto input {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--verde);
+}
+
+.visto span { display: inline-flex; align-items: center; gap: var(--e-2); }
+.visto-nota { margin-top: 0; padding-left: 32px; }
+
+.criar-exercicio { display: flex; flex-direction: column; }
+
+/* Sinal do peso extra (+ a mais, − assistido): o teclado decimal do iPhone não tem "−" */
+.botao-sinal {
+  width: 28px;
+  min-width: 28px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pequeno);
+  background: transparent;
+  color: var(--verde);
+  font-size: var(--t-cartao);
+  font-weight: var(--p-titulo);
+}
+
+.botao-sinal.negativo { border-color: var(--laranja-borda); color: var(--laranja); }
+
+.volta-linha .vezes { white-space: nowrap; }
+
+.campo-com-sinal { display: flex; align-items: center; gap: 6px; }
+.alvos .campo-com-sinal .botao-sinal { height: var(--toque); }
+.alvos .campo-com-sinal input { flex: 1; min-width: 0; }
+
+.botao-pc {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pilula);
+  background: transparent;
+  color: var(--texto-fraco);
+  font-size: var(--t-etiqueta);
+  font-weight: var(--p-titulo);
+}
+
+.botao-pc.ativo { border-color: transparent; background: var(--azul-fundo); color: var(--azul); }
+
+.aviso-peso-corporal {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: var(--e-3) 0;
+  padding: var(--e-3) 14px;
+  border-radius: var(--raio-campo);
+  background: var(--azul-fundo);
+  color: var(--texto-suave);
+  font-size: var(--t-pequeno);
+}
+
+.aviso-peso-corporal svg { margin-top: 1px; color: var(--azul); }
+.aviso-peso-corporal p { margin: 0; }
+.aviso-peso-corporal .botao-link { grid-column: 2; justify-self: start; min-height: 36px; color: var(--azul); }
+
+/* ---------- Treinos favoritos ---------- */
+
+.detalhe-topo-acoes { display: flex; align-items: center; gap: var(--e-2); }
+
+.botao-favorito {
+  width: var(--toque);
+  height: var(--toque);
+  padding: 0;
+  border-radius: var(--raio-pilula);
+  background: transparent;
+  color: var(--texto-suave);
+}
+
+.botao-favorito.ativo { color: var(--amarelo); }
+.botao-favorito.ativo svg { fill: currentColor; }
+.botao-favorito.ativo:active svg { animation: pop 380ms var(--suave); }
+
+.estrela-favorito { flex-shrink: 0; color: var(--amarelo); fill: currentColor; }
+.nota-favorito { margin: 0 0 var(--e-3); gap: 6px; }
+.nota-favoritos { align-items: flex-start; gap: var(--e-2); margin: 0 0 var(--e-4); }
+.nota-favoritos svg { flex-shrink: 0; margin-top: 2px; }
+
+.cartao-favorito-topo { display: flex; align-items: center; gap: 10px; }
+.cartao-favorito-topo h2 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+.cartao-favorito-detalhe {
+  margin: var(--e-2) 0 var(--e-1);
+  font-size: var(--t-secundario);
+  color: var(--texto-suave);
+}
+
+.cartao-favorito-detalhe .mais { color: var(--verde); font-weight: var(--p-forte); }
+
+.cartao-favorito-acoes { display: flex; gap: var(--e-2); margin-top: var(--e-4); }
+.cartao-favorito-acoes button { flex: 1; min-width: 0; margin-top: 0; padding-inline: var(--e-2); }
+
+.cartao-favorito-secundarias { display: flex; justify-content: space-between; gap: var(--e-2); }
+.cartao-favorito-secundarias .botao-terciario { width: auto; padding-inline: var(--e-1); }
+
+.botao-terciario.perigo { color: var(--erro); }
+
+.cabecalho-seccao-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--e-2); }
+
+/* Favoritos no início: cartões pequenos, um toque começa o treino */
+.inicio-favoritos { margin-top: var(--e-5); }
+
+.inicio-favoritos-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--toque);
+}
+
+.inicio-favoritos-topo h2 { margin: 0; gap: 6px; }
+.inicio-favoritos-topo svg { color: var(--amarelo); fill: currentColor; }
+
+.inicio-favoritos-lista { display: flex; flex-direction: column; gap: var(--e-2); }
+
+.cartao-favorito-inicio {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--e-3);
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: var(--e-3) 14px;
+  background: var(--cartao);
+  color: var(--texto);
+  text-align: left;
+}
+
+.cartao-favorito-inicio-nome {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--p-titulo);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cartao-favorito-inicio-exercicios {
+  grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--t-pequeno);
+  font-weight: var(--p-normal);
+  color: var(--texto-suave);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cartao-favorito-inicio-acao {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  gap: var(--e-1);
+  color: var(--verde);
+  font-size: var(--t-secundario);
+  font-weight: var(--p-forte);
+}

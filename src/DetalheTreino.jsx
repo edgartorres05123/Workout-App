@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
-import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, Pencil, Star, Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
+import AvisoPesoCorporal from './AvisoPesoCorporal'
 import Confirmar from './Confirmar'
+import { useCarga } from './contextoPesoCorporal'
 import EditorTreino from './EditorTreino'
 import IconeBloco from './IconeBloco'
+import NomeFavorito from './NomeFavorito'
 import NotasTreino from './NotasTreino'
 import Numero from './Numero'
-import { estadoVoltas, letraExercicio, normalizarTreino, numerarBlocos, tituloBloco } from './blocos'
+import { estadoVoltas, letraExercicio, normalizarTreino, numerarBlocos, sugerirNomeFavorito, tituloBloco } from './blocos'
 import {
   calcular1RM,
   calcularVolume,
@@ -17,6 +20,7 @@ import {
   formatarPeso,
   melhorSerie,
 } from './formatar'
+import { textoCarga } from './pesoCorporal'
 
 // Detalhe de um treino terminado, organizado por blocos. "Editar" abre o EditorTreino (modo
 // 'editar'). O treino pertence ao componente pai; as alterações chegam por onAlterar(atualizar).
@@ -26,7 +30,10 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
   const [confirmarApagar, setConfirmarApagar] = useState(false)
   const [aApagar, setAApagar] = useState(false)
   const [erro, setErro] = useState('')
+  const [aNomearFavorito, setANomearFavorito] = useState(false)
   const avisar = useAvisos()
+  const carga = useCarga()
+  const cargaDaSerie = (s) => carga(s, treino.data)
 
   async function guardarTreino(campos) {
     const { error } = await supabase.from('treinos').update(campos).eq('id', treino.id)
@@ -43,6 +50,22 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
     if (error) return setErro(error.message)
     avisar('Treino apagado')
     onApagado()
+  }
+
+  // ⭐: marcar pede um nome; tocar outra vez tira dos favoritos
+  async function guardarFavorito(nome) {
+    const mensagem = await guardarTreino({ favorito: true, nome_favorito: nome })
+    if (mensagem) return mensagem
+    setANomearFavorito(false)
+    avisar('Guardado nos favoritos')
+    return null
+  }
+
+  async function alternarFavorito() {
+    if (!treino.favorito) return setANomearFavorito(true)
+    const mensagem = await guardarTreino({ favorito: false, nome_favorito: null })
+    if (mensagem) return avisar(mensagem, 'erro')
+    avisar('Removido dos favoritos')
   }
 
   if (aEditar) {
@@ -80,17 +103,35 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
           <ChevronLeft size={20} />
           Voltar
         </button>
-        <button
-          className="botao-editar com-icone"
-          onClick={() => {
-            setAEditar(true)
-            window.scrollTo(0, 0)
-          }}
-        >
-          <Pencil size={16} />
-          Editar
-        </button>
+        <div className="detalhe-topo-acoes">
+          <button
+            className={treino.favorito ? 'botao-favorito ativo' : 'botao-favorito'}
+            onClick={alternarFavorito}
+            aria-pressed={Boolean(treino.favorito)}
+            aria-label={treino.favorito ? `Tirar dos favoritos (${treino.nome_favorito ?? ''})` : 'Guardar nos favoritos'}
+            title={treino.favorito ? treino.nome_favorito ?? 'Favorito' : 'Guardar nos favoritos'}
+          >
+            <Star size={20} />
+          </button>
+          <button
+            className="botao-editar com-icone"
+            onClick={() => {
+              setAEditar(true)
+              window.scrollTo(0, 0)
+            }}
+          >
+            <Pencil size={16} />
+            Editar
+          </button>
+        </div>
       </div>
+
+      {treino.favorito && treino.nome_favorito && (
+        <p className="nota nota-favorito com-icone">
+          <Star size={14} className="estrela-favorito" aria-hidden="true" />
+          Favorito: {treino.nome_favorito}
+        </p>
+      )}
 
       <div className="cartao treino-cabecalho">
         <p className="treino-data">
@@ -98,8 +139,9 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
         </p>
         <div className="numeros">
           <Numero valor={formatarMinutos(treino.duracao_min ?? 0)} rotulo="Duração" />
-          <Numero valor={`${formatarPeso(calcularVolume(treino.series))} kg`} rotulo="Volume" />
+          <Numero valor={`${formatarPeso(calcularVolume(treino.series, cargaDaSerie))} kg`} rotulo="Volume" />
         </div>
+        <AvisoPesoCorporal mostrar={treino.series.some((s) => s.exercicios?.peso_corporal)} />
       </div>
 
       {treino.blocos.length === 0 && semBloco.length === 0 && (
@@ -112,6 +154,7 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
           bloco={bloco}
           titulo={tituloBloco(bloco, numeros[i])}
           series={treino.series.filter((s) => s.bloco_id === bloco.id)}
+          carga={cargaDaSerie}
         />
       ))}
 
@@ -120,6 +163,7 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
           bloco={{ id: 'sem-bloco', tipo: 'serie', voltas: 1, bloco_exercicios: [] }}
           titulo="Séries sem bloco"
           series={semBloco}
+          carga={cargaDaSerie}
         />
       )}
 
@@ -141,16 +185,27 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
           onCancelar={() => setConfirmarApagar(false)}
         >
           <p>Os blocos e as séries deste treino serão apagados. Não é possível desfazer.</p>
+          {treino.favorito && <p>Este treino é um favorito: também sai dos favoritos.</p>}
           {erro && <p className="erro">{erro}</p>}
         </Confirmar>
+      )}
+
+      {aNomearFavorito && (
+        <NomeFavorito
+          titulo="Guardar nos favoritos"
+          inicial={sugerirNomeFavorito(treino)}
+          textoBotao="Guardar nos favoritos"
+          onGuardar={guardarFavorito}
+          onFechar={() => setANomearFavorito(false)}
+        />
       )}
     </div>
   )
 }
 
 // Um bloco em modo de leitura: os exercícios (com o 1RM da melhor série) e as voltas feitas,
-// com a melhor série de cada exercício destacada
-function BlocoLeitura({ bloco, titulo, series }) {
+// com a melhor série de cada exercício destacada. carga(serie): a carga efetiva (peso corporal incluído).
+function BlocoLeitura({ bloco, titulo, series, carga }) {
   // Os exercícios do bloco, mais algum que tenha séries sem estar na lista
   const exercicios = [...bloco.bloco_exercicios]
   for (const s of series) {
@@ -163,8 +218,8 @@ function BlocoLeitura({ bloco, titulo, series }) {
   // A melhor série de cada exercício (maior 1RM); sem destaque nos exercícios feitos sem peso
   const melhores = new Map(
     exercicios.map((be) => {
-      const melhor = melhorSerie(series.filter((s) => s.exercicio_id === be.exercicio_id))
-      return [be.exercicio_id, melhor && calcular1RM(melhor.repeticoes, melhor.peso_kg) > 0 ? melhor : null]
+      const melhor = melhorSerie(series.filter((s) => s.exercicio_id === be.exercicio_id), carga)
+      return [be.exercicio_id, melhor && calcular1RM(melhor.repeticoes, carga(melhor)) > 0 ? melhor : null]
     })
   )
   const voltas = estadoVoltas(bloco, series).filter((v) => v.feita)
@@ -185,10 +240,13 @@ function BlocoLeitura({ bloco, titulo, series }) {
             <li key={be.id}>
               {varios && <span className="letra">{letraExercicio(i)}</span>}
               <span className="bloco-exercicio-texto">
-                <span className="bloco-exercicio-nome">{be.exercicios?.nome ?? '—'}</span>
+                <span className="bloco-exercicio-nome">
+                  {be.exercicios?.nome ?? '—'}
+                  {be.exercicios?.peso_corporal && <span className="etiqueta etiqueta-pc">PC</span>}
+                </span>
                 {melhor && (
                   <span className="bloco-exercicio-alvo">
-                    1RM estimado: {formatarPeso(Math.round(calcular1RM(melhor.repeticoes, melhor.peso_kg) * 10) / 10)} kg
+                    1RM estimado: {formatarPeso(Math.round(calcular1RM(melhor.repeticoes, carga(melhor)) * 10) / 10)} kg
                   </span>
                 )}
               </span>
@@ -217,7 +275,7 @@ function BlocoLeitura({ bloco, titulo, series }) {
                     </span>
                     {varios && <span className="letra">{letraExercicio(i)}</span>}
                     <span className="serie-valor">{serie.repeticoes} reps</span>
-                    <span className="serie-valor">{formatarPeso(serie.peso_kg)} kg</span>
+                    <span className="serie-valor">{textoCarga(serie.peso_kg, serie.exercicios?.peso_corporal)}</span>
                     {destaque && <span className="etiqueta-melhor">Melhor</span>}
                   </li>
                 )

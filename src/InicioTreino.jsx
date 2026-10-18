@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { CalendarPlus, ChevronRight, Dumbbell, Flame, Layers, Play, RotateCcw, Timer, Weight } from 'lucide-react'
-import { buscarTreino, buscarTreinosTerminados } from './consultas'
+import { CalendarPlus, ChevronRight, Dumbbell, Flame, Layers, Play, RotateCcw, Star, Timer, Weight } from 'lucide-react'
+import { buscarFavoritos, buscarTreino, buscarTreinosTerminados } from './consultas'
+import { useCarga } from './contextoPesoCorporal'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
 import Numero from './Numero'
-import { estruturaParaCopiar } from './blocos'
+import { estruturaParaCopiar, exerciciosDaEstrutura } from './blocos'
 import {
   abreviarNumero,
   agruparPorExercicio,
@@ -20,10 +21,12 @@ import { diasDaSemanaAtual, primeiroNome, resumoSemana, saudacao, treinoMaisRece
 const DetalheTreino = lazy(() => import('./DetalheTreino'))
 
 const MAX_NOMES = 3
+const MAX_FAVORITOS = 3
 
-// Os treinos terminados (para a semana e a sequência) e o último treino completo (com os blocos)
+// Os treinos terminados (para a semana e a sequência), o último treino completo (com os blocos)
+// e os treinos favoritos. Os favoritos são um extra: se falharem, o início abre na mesma.
 async function buscarInicio() {
-  const resultado = await buscarTreinosTerminados()
+  const [resultado, favoritos] = await Promise.all([buscarTreinosTerminados(), buscarFavoritos()])
   if (resultado.erro) return { erro: resultado.erro }
   const recente = treinoMaisRecente(resultado.linhas)
   let ultimo = null
@@ -32,7 +35,7 @@ async function buscarInicio() {
     if (completo.erro) return { erro: completo.erro }
     ultimo = completo.treino
   }
-  return { treinos: resultado.linhas, ultimo, agora: new Date() }
+  return { treinos: resultado.linhas, ultimo, favoritos: favoritos.favoritos ?? [], agora: new Date() }
 }
 
 // Ecrã de início do separador Início, quando não há treino em curso.
@@ -48,6 +51,7 @@ export default function InicioTreino({
   onRepetir,
   onRegistar,
   onCabecalho,
+  onVerFavoritos,
 }) {
   const [agoraInicial] = useState(() => new Date())
   const [dados, setDados] = useState(null) // null = a carregar
@@ -143,6 +147,13 @@ export default function InicioTreino({
 
           {ultimo && <CartaoUltimo treino={ultimo} onAbrir={() => setAberto(ultimo)} />}
 
+          <Favoritos
+            favoritos={dados.favoritos}
+            desativado={aCriar}
+            onComecar={(favorito) => onRepetir(estruturaParaCopiar(favorito))}
+            onVerTodos={onVerFavoritos}
+          />
+
           <div className="inicio-acoes">
             <button className="botao-grande com-icone" onClick={onComecar} disabled={aCriar}>
               <Play size={20} />
@@ -193,7 +204,8 @@ function ImagemInicio({ children }) {
 
 // Os três números da semana e a fila dos 7 dias
 function Semana({ treinos, agora }) {
-  const resumo = resumoSemana(treinos, agora)
+  const carga = useCarga()
+  const resumo = resumoSemana(treinos, agora, carga)
   const dias = diasDaSemanaAtual(treinos, agora)
 
   return (
@@ -233,7 +245,52 @@ function Semana({ treinos, agora }) {
   )
 }
 
+// Até 3 favoritos em cartões pequenos: um toque começa um treino ao vivo com a estrutura copiada
+function Favoritos({ favoritos, desativado, onComecar, onVerTodos }) {
+  if (favoritos.length === 0) return null
+  return (
+    <section className="inicio-favoritos" aria-label="Treinos favoritos">
+      <div className="inicio-favoritos-topo">
+        <h2 className="rotulo-pequeno com-icone">
+          <Star size={14} aria-hidden="true" />
+          Favoritos
+        </h2>
+        {favoritos.length > MAX_FAVORITOS && onVerTodos && (
+          <button className="botao-link" onClick={onVerTodos}>
+            Ver todos ({favoritos.length})
+          </button>
+        )}
+      </div>
+      <div className="inicio-favoritos-lista">
+        {favoritos.slice(0, MAX_FAVORITOS).map((f) => {
+          const { nomes, resto } = exerciciosDaEstrutura(f, 2)
+          return (
+            <button
+              key={f.id}
+              className="cartao cartao-favorito-inicio"
+              onClick={() => onComecar(f)}
+              disabled={desativado}
+              aria-label={`Começar ${f.nome_favorito ?? 'favorito'}`}
+            >
+              <span className="cartao-favorito-inicio-nome">{f.nome_favorito ?? 'Treino favorito'}</span>
+              <span className="cartao-favorito-inicio-exercicios">
+                {nomes.join(', ') || 'Sem exercícios'}
+                {resto > 0 && ` +${resto}`}
+              </span>
+              <span className="cartao-favorito-inicio-acao com-icone">
+                <Play size={14} aria-hidden="true" />
+                Começar
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function CartaoUltimo({ treino, onAbrir }) {
+  const carga = useCarga()
   const nomes = agruparPorExercicio(treino.series).map((g) => g.exercicio?.nome ?? '—')
   const resto = nomes.length - MAX_NOMES
   const numBlocos = treino.blocos?.length ?? 0
@@ -256,7 +313,7 @@ function CartaoUltimo({ treino, onAbrir }) {
         </span>
         <span className="com-icone">
           <Weight size={15} aria-hidden="true" />
-          {abreviarNumero(calcularVolume(treino.series))} kg
+          {abreviarNumero(calcularVolume(treino.series, (s) => carga(s, treino.data)))} kg
         </span>
       </span>
       {nomes.length > 0 && (
