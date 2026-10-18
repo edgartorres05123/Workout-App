@@ -15,10 +15,11 @@ import {
   textoResultadoAmrap,
   textoSegundos,
 } from './condicionamento'
+import { nomeAtividade } from './atividades'
 import { calcularVolume, lerNumero, pesoParaInput } from './formatar'
 
-// Os tipos de bloco, por grupo ('forca' ou 'condicionamento'). O tipo 'cardio' existe na base de dados
-// mas ainda não é mostrado.
+// Os tipos de bloco com exercícios, por grupo ('forca' ou 'condicionamento'). O tipo 'cardio' é à parte:
+// em vez de exercícios tem uma atividade (corrida, natação...) com intervalos em atividades_cardio.
 export const TIPOS_BLOCO = [
   { id: 'aquecimento', grupo: 'forca', nome: 'Aquecimento', descricao: 'Um ou mais exercícios para aquecer. Não contam para o volume nem para os recordes.' },
   { id: 'serie', grupo: 'forca', nome: 'Série', descricao: 'Um exercício repetido várias voltas.' },
@@ -31,7 +32,14 @@ export const GRUPOS_BLOCO = [
   { id: 'forca', nome: 'Força' },
   { id: 'condicionamento', nome: 'Condicionamento' },
 ]
-export const NOME_TIPO = Object.fromEntries(TIPOS_BLOCO.map((t) => [t.id, t.nome]))
+export const NOME_TIPO = { ...Object.fromEntries(TIPOS_BLOCO.map((t) => [t.id, t.nome])), cardio: 'Cardio' }
+
+// As linhas de cardio de um bloco, pelo número do intervalo
+export const linhasCardio = (bloco) =>
+  [...(bloco.atividades_cardio ?? [])].sort((a, b) => (a.volta ?? 1) - (b.volta ?? 1) || Number(a.id) - Number(b.id))
+
+// A atividade de um bloco de cardio (a do 1.º intervalo), ou null
+export const atividadeDoBloco = (bloco) => linhasCardio(bloco)[0]?.atividade ?? null
 
 // Voltas e reps-alvo com que um bloco novo começa (no AMRAP, as voltas são o resultado; no EMOM, os intervalos)
 export const VOLTAS_INICIAIS = { aquecimento: 2, serie: 3, superserie: 3, circuito: 3, amrap: 1, emom: 10 }
@@ -71,6 +79,11 @@ export function numerarBlocos(blocos) {
 // "AMRAP 12 min · 7 voltas + 5 reps", "EMOM 12 min · 10/12 intervalos". series: as do bloco (para os
 // resultados do AMRAP e do EMOM); sem elas, só a configuração.
 function descricaoBloco(bloco, series) {
+  if (bloco.tipo === 'cardio') {
+    const n = linhasCardio(bloco).length
+    const nome = atividadeDoBloco(bloco) ? nomeAtividade(atividadeDoBloco(bloco)) : 'Cardio'
+    return n > 1 ? `${nome} · ${n} intervalos` : nome
+  }
   const feitas = series?.length > 0
   if (bloco.tipo === 'amrap') {
     const resultado = feitas ? resultadoAmrap(bloco, series) : null
@@ -225,9 +238,11 @@ export function proximaOrdem(lista) {
 // [{ ordem, tipo, voltas, notas, duracao_seg, intervalo_seg,
 //    exercicios: [{ ordem, exercicio_id, reps_alvo, peso_alvo, segundos_alvo }] }]
 // O tempo_seg (resultado de um circuito) não se copia; no AMRAP as voltas são o resultado: voltam a 1.
+// Os blocos de cardio levam a atividade de cada intervalo, sem os valores feitos:
+// atividades: [{ volta, atividade }] (e exercicios: []).
 export function estruturaParaCopiar(treino) {
   return normalizarTreino(treino).blocos
-    .filter((b) => b.bloco_exercicios.length > 0)
+    .filter((b) => b.bloco_exercicios.length > 0 || (b.tipo === 'cardio' && linhasCardio(b).length > 0))
     .map((b, i) => ({
       ordem: i + 1,
       tipo: b.tipo,
@@ -242,6 +257,9 @@ export function estruturaParaCopiar(treino) {
         peso_alvo: be.peso_alvo ?? null,
         segundos_alvo: be.segundos_alvo ?? null,
       })),
+      ...(b.tipo === 'cardio'
+        ? { voltas: 1, atividades: linhasCardio(b).map((l, j) => ({ volta: j + 1, atividade: l.atividade })) }
+        : {}),
     }))
 }
 
@@ -251,20 +269,24 @@ export function resumoEstrutura(treino) {
     .blocos.map((b) =>
       b.tipo === 'aquecimento'
         ? 'Aquecimento'
-        : b.bloco_exercicios.map((be) => be.exercicios?.nome ?? '?').join(' + ')
+        : b.tipo === 'cardio'
+          ? atividadeDoBloco(b) && nomeAtividade(atividadeDoBloco(b))
+          : b.bloco_exercicios.map((be) => be.exercicios?.nome ?? '?').join(' + ')
     )
     .filter(Boolean)
     .join(', ')
 }
 
+// Os nomes num bloco: os dos exercícios, ou o da atividade num bloco de cardio
+function nomesDoBloco(bloco) {
+  if (bloco.tipo === 'cardio') return atividadeDoBloco(bloco) ? [nomeAtividade(atividadeDoBloco(bloco))] : []
+  return bloco.bloco_exercicios.map((be) => be.exercicios?.nome).filter(Boolean)
+}
+
 // Os nomes dos exercícios da estrutura de um treino, pela ordem e sem repetir:
 // "Supino plano, Remada +2" (até `maximo` nomes; resto = quantos ficaram de fora)
 export function exerciciosDaEstrutura(treino, maximo = 3) {
-  const nomes = [
-    ...new Set(
-      normalizarTreino(treino).blocos.flatMap((b) => b.bloco_exercicios.map((be) => be.exercicios?.nome).filter(Boolean))
-    ),
-  ]
+  const nomes = [...new Set(normalizarTreino(treino).blocos.flatMap(nomesDoBloco))]
   return { nomes: nomes.slice(0, maximo), resto: Math.max(0, nomes.length - maximo), total: nomes.length }
 }
 
@@ -272,7 +294,7 @@ export function exerciciosDaEstrutura(treino, maximo = 3) {
 // aquecimento, se houver outros): "Supino plano, Remada +2". Sem exercícios: "Treino favorito".
 export function sugerirNomeFavorito(treino, maximo = 2) {
   const { blocos } = normalizarTreino(treino)
-  const deBlocos = (lista) => lista.flatMap((b) => b.bloco_exercicios.map((be) => be.exercicios?.nome).filter(Boolean))
+  const deBlocos = (lista) => lista.flatMap(nomesDoBloco)
   const principais = deBlocos(blocos.filter((b) => b.tipo !== 'aquecimento'))
   const nomes = [...new Set(principais.length > 0 ? principais : deBlocos(blocos))]
   if (nomes.length === 0) return 'Treino favorito'
@@ -292,6 +314,13 @@ export function progressoVoltas(treino) {
   let feitas = 0
   let total = 0
   for (const bloco of blocos) {
+    if (bloco.tipo === 'cardio') {
+      // No cardio, cada intervalo conta como uma volta (feito quando tem duração)
+      const linhas = linhasCardio(bloco)
+      total += linhas.length
+      feitas += linhas.filter((l) => Number(l.duracao_seg) > 0).length
+      continue
+    }
     if (bloco.bloco_exercicios.length === 0) continue
     const voltas = estadoVoltas(bloco, series.filter((s) => s.bloco_id === bloco.id))
     total += voltas.length

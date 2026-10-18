@@ -2,11 +2,13 @@ import { useEffect, useImperativeHandle, useState } from 'react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
 import { estruturaParaCopiar } from './blocos'
+import { resumoSessao } from './cardio'
 import { buscarTreino, buscarTreinoEmCurso } from './consultas'
 import EditorTreino from './EditorTreino'
 import Esqueleto from './Esqueleto'
 import InicioTreino from './InicioTreino'
 import NovoTreino from './NovoTreino'
+import RegistarAtividade from './RegistarAtividade'
 
 // Copia a estrutura de um treino anterior (blocos, exercícios e alvos) para o treino novo
 async function copiarEstrutura(treinoId, estrutura) {
@@ -28,6 +30,15 @@ async function copiarEstrutura(treinoId, estrutura) {
   if (error) return error.message
 
   const idPorOrdem = new Map(blocos.map((b) => [b.ordem, b.id]))
+
+  // Blocos de cardio: um intervalo por fazer (duração 0) por cada um do original, com a atividade
+  const cardio = estrutura.flatMap((b) =>
+    (b.atividades ?? []).map(({ volta, atividade }) => ({ bloco_id: idPorOrdem.get(b.ordem), volta, atividade, duracao_seg: 0 }))
+  )
+  if (cardio.length > 0) {
+    const { error: erroCardio } = await supabase.from('atividades_cardio').insert(cardio)
+    if (erroCardio) return erroCardio.message
+  }
   const linhas = estrutura.flatMap((b) =>
     b.exercicios.map((e) => ({ bloco_id: idPorOrdem.get(b.ordem), ...e }))
   )
@@ -49,6 +60,7 @@ export default function Treino({ ref, nome, ativo = true, onCabecalho, onVerFavo
   const [treino, setTreino] = useState(null)
   const [modo, setModo] = useState('aoVivo') // 'aoVivo' | 'passado'
   const [novo, setNovo] = useState(null) // null | 'aoVivo' | 'passado' (janela aberta)
+  const [aRegistarAtividade, setARegistarAtividade] = useState(false)
   const [resumo, setResumo] = useState(null)
   const [erro, setErro] = useState('')
   const [aCriar, setACriar] = useState(false)
@@ -127,6 +139,53 @@ export default function Treino({ ref, nome, ativo = true, onCabecalho, onVerFavo
   }
 
   // "Repetir último treino": começa logo um treino ao vivo com a estrutura copiada
+  // Uma atividade sozinha (sem ginásio): um treino terminado só com um bloco de cardio. A duração do
+  // treino é a da atividade, arredondada para cima ao minuto. Se algo falhar a meio, o treino é apagado.
+  async function registarAtividade({ data, atividade, dados }) {
+    const duracao = Math.max(1, Math.ceil(dados.duracao_seg / 60))
+    const { data: criado, error } = await supabase
+      .from('treinos')
+      .insert({ data, duracao_min: duracao })
+      .select('id')
+      .single()
+    if (error) return error.message
+    const desfazer = async (mensagem) => {
+      await supabase.from('treinos').delete().eq('id', criado.id)
+      return mensagem
+    }
+    const { data: bloco, error: erroBloco } = await supabase
+      .from('blocos')
+      .insert({ treino_id: criado.id, ordem: 1, tipo: 'cardio', voltas: 1 })
+      .select('id')
+      .single()
+    if (erroBloco) return desfazer(erroBloco.message)
+    const { error: erroCardio } = await supabase
+      .from('atividades_cardio')
+      .insert({ bloco_id: bloco.id, volta: 1, atividade, ...dados })
+    if (erroCardio) return desfazer(erroCardio.message)
+
+    setARegistarAtividade(false)
+    avisar('Atividade registada')
+    fecharTreino({
+      titulo: 'Atividade registada',
+      duracao,
+      volume: 0,
+      numSeries: 0,
+      numExercicios: 0,
+      cardio: resumoSessao({ atividade, ...dados, intervalos: 1 }),
+    })
+    return null
+  }
+
+  // "Começar agora": um treino ao vivo só com o bloco de cardio (para cronometrar a atividade)
+  async function comecarAtividade(atividade) {
+    setARegistarAtividade(false)
+    await repetir([
+      { ordem: 1, tipo: 'cardio', voltas: 1, notas: null, exercicios: [], atividades: [{ volta: 1, atividade }] },
+    ])
+    return null
+  }
+
   async function repetir(estrutura) {
     setACriar(true)
     setErro('')
@@ -206,8 +265,17 @@ export default function Treino({ ref, nome, ativo = true, onCabecalho, onVerFavo
         onComecar={() => abrirNovo('aoVivo')}
         onRepetir={repetir}
         onRegistar={() => abrirNovo('passado')}
+        onRegistarAtividade={() => setARegistarAtividade(true)}
         onVerFavoritos={onVerFavoritos}
       />
+
+      {aRegistarAtividade && (
+        <RegistarAtividade
+          onRegistar={registarAtividade}
+          onComecarAgora={comecarAtividade}
+          onFechar={() => setARegistarAtividade(false)}
+        />
+      )}
 
       {novo && (
         <NovoTreino

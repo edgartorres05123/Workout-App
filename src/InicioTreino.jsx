@@ -1,6 +1,24 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { CalendarPlus, ChevronRight, Dumbbell, Flame, Layers, Lightbulb, Play, RotateCcw, Star, Timer, Weight } from 'lucide-react'
-import { buscarExercicios, buscarFavoritos, buscarTreino, buscarTreinosTerminados } from './consultas'
+import {
+  Activity,
+  CalendarPlus,
+  ChevronRight,
+  Dumbbell,
+  Flame,
+  HeartPulse,
+  Layers,
+  Lightbulb,
+  Play,
+  RotateCcw,
+  Route,
+  Star,
+  Timer,
+  Weight,
+} from 'lucide-react'
+import { buscarAtividadesCardio, buscarExercicios, buscarFavoritos, buscarTreino, buscarTreinosTerminados } from './consultas'
+import { cardioDaSemana, resumoSessao, sessoesCardio, sessoesDoTreino, textoDistancia } from './cardio'
+import { formatarTempo } from './condicionamento'
+import IconeAtividade from './IconeAtividade'
 import { useCarga } from './contextoPesoCorporal'
 import { useSemana } from './contextoSemana'
 import Esqueleto from './Esqueleto'
@@ -32,10 +50,11 @@ const MAX_FAVORITOS = 3
 // os treinos favoritos e os exercícios com os músculos (para a semana por músculo e a sugestão).
 // Os favoritos e os exercícios são um extra: se falharem, o início abre na mesma.
 async function buscarInicio() {
-  const [resultado, favoritos, exercicios] = await Promise.all([
+  const [resultado, favoritos, exercicios, cardio] = await Promise.all([
     buscarTreinosTerminados(),
     buscarFavoritos(),
     buscarExercicios(),
+    buscarAtividadesCardio(),
   ])
   if (resultado.erro) return { erro: resultado.erro }
   const recente = treinoMaisRecente(resultado.linhas)
@@ -45,8 +64,12 @@ async function buscarInicio() {
     if (completo.erro) return { erro: completo.erro }
     ultimo = completo.treino
   }
-  return { treinos: resultado.linhas, ultimo, favoritos: favoritos.favoritos ?? [],
+  return {
+    treinos: resultado.linhas,
+    ultimo,
+    favoritos: favoritos.favoritos ?? [],
     exercicios: exercicios.linhas ?? [],
+    cardio: sessoesCardio(cardio.linhas ?? []),
     agora: new Date(),
   }
 }
@@ -63,6 +86,7 @@ export default function InicioTreino({
   onComecar,
   onRepetir,
   onRegistar,
+  onRegistarAtividade,
   onCabecalho,
   onVerFavoritos,
 }) {
@@ -113,7 +137,9 @@ export default function InicioTreino({
   const agora = dados?.agora ?? agoraInicial
   const primeiro = primeiroNome(nome)
   const ultimo = dados?.ultimo
-  const temEstrutura = ultimo?.blocos?.some((b) => b.bloco_exercicios.length > 0)
+  const temEstrutura = ultimo?.blocos?.some(
+    (b) => b.bloco_exercicios.length > 0 || (b.tipo === 'cardio' && b.atividades_cardio?.length > 0)
+  )
 
   return (
     <div className="inicio">
@@ -130,12 +156,22 @@ export default function InicioTreino({
           <h2>{resumo.titulo}</h2>
           <div className="numeros">
             <Numero valor={formatarMinutos(resumo.duracao)} rotulo="Duração" />
-            <Numero valor={`${formatarPeso(resumo.volume)} kg`} rotulo="Volume" destaque />
+            {(resumo.numSeries > 0 || !resumo.cardio) && (
+              <Numero valor={`${formatarPeso(resumo.volume)} kg`} rotulo="Volume" destaque />
+            )}
           </div>
-          <p className="subtitulo resumo-detalhe">
-            {resumo.numExercicios} {resumo.numExercicios === 1 ? 'exercício' : 'exercícios'} ·{' '}
-            {resumo.numSeries} {resumo.numSeries === 1 ? 'série' : 'séries'}
-          </p>
+          {(resumo.numSeries > 0 || !resumo.cardio) && (
+            <p className="subtitulo resumo-detalhe">
+              {resumo.numExercicios} {resumo.numExercicios === 1 ? 'exercício' : 'exercícios'} ·{' '}
+              {resumo.numSeries} {resumo.numSeries === 1 ? 'série' : 'séries'}
+            </p>
+          )}
+          {resumo.cardio && (
+            <p className="subtitulo resumo-detalhe com-icone">
+              <HeartPulse size={15} aria-hidden="true" />
+              {resumo.cardio}
+            </p>
+          )}
         </div>
       )}
 
@@ -153,10 +189,16 @@ export default function InicioTreino({
             <Play size={20} />
             Começar treino
           </button>
+          <button className="botao-secundario com-icone" onClick={onRegistarAtividade} disabled={aCriar}>
+            <Activity size={18} />
+            Registar atividade
+          </button>
         </EstadoVazio>
       ) : (
         <>
           <Semana treinos={dados.treinos} agora={agora} />
+
+          <CartaoCardioSemana sessoes={dados.cardio} agora={agora} />
 
           <SemanaMusculos treinos={dados.treinos} exercicios={dados.exercicios} agora={agora} />
 
@@ -172,10 +214,16 @@ export default function InicioTreino({
           />
 
           <div className="inicio-acoes">
-            <button className="botao-grande com-icone" onClick={onComecar} disabled={aCriar}>
-              <Play size={20} />
-              Começar treino
-            </button>
+            <div className="inicio-acoes-linha">
+              <button className="botao-grande com-icone" onClick={onComecar} disabled={aCriar}>
+                <Play size={20} />
+                Começar treino
+              </button>
+              <button className="botao-secundario com-icone" onClick={onRegistarAtividade} disabled={aCriar}>
+                <Activity size={18} />
+                Registar atividade
+              </button>
+            </div>
             {temEstrutura && (
               <button
                 className="botao-secundario com-icone"
@@ -340,8 +388,39 @@ function Favoritos({ favoritos, desativado, onComecar, onVerTodos }) {
   )
 }
 
+// "Cardio esta semana": km e tempo (só aparece se houver)
+function CartaoCardioSemana({ sessoes, agora }) {
+  const semana = cardioDaSemana(sessoes, agora)
+  if (semana.sessoes === 0) return null
+  return (
+    <div className="cartao cartao-cardio-semana">
+      <span className="rotulo-pequeno com-icone">
+        <HeartPulse size={14} aria-hidden="true" />
+        Cardio esta semana
+      </span>
+      <span className="cartao-cardio-semana-numeros">
+        {semana.distancia_m > 0 && (
+          <span className="com-icone">
+            <Route size={15} aria-hidden="true" />
+            {textoDistancia(semana.distancia_m)}
+          </span>
+        )}
+        <span className="com-icone">
+          <Timer size={15} aria-hidden="true" />
+          {formatarTempo(semana.duracao_seg)}
+        </span>
+        <span>
+          {semana.sessoes} {semana.sessoes === 1 ? 'sessão' : 'sessões'}
+        </span>
+      </span>
+    </div>
+  )
+}
+
 function CartaoUltimo({ treino, onAbrir }) {
   const carga = useCarga()
+  const cardio = sessoesDoTreino(treino)
+  const soCardio = treino.series.length === 0 && cardio.length > 0
   const nomes = agruparPorExercicio(treino.series).map((g) => g.exercicio?.nome ?? '—')
   const resto = nomes.length - MAX_NOMES
   const numBlocos = treino.blocos?.length ?? 0
@@ -362,10 +441,12 @@ function CartaoUltimo({ treino, onAbrir }) {
           <Timer size={15} aria-hidden="true" />
           {formatarMinutos(treino.duracao_min ?? 0)}
         </span>
-        <span className="com-icone">
-          <Weight size={15} aria-hidden="true" />
-          {abreviarNumero(calcularVolume(treino.series, (s) => carga(s, treino.data)))} kg
-        </span>
+        {!soCardio && (
+          <span className="com-icone">
+            <Weight size={15} aria-hidden="true" />
+            {abreviarNumero(calcularVolume(treino.series, (s) => carga(s, treino.data)))} kg
+          </span>
+        )}
       </span>
       {nomes.length > 0 && (
         <span className="cartao-treino-exercicios">
@@ -373,6 +454,12 @@ function CartaoUltimo({ treino, onAbrir }) {
           {resto > 0 && <span className="mais"> +{resto}</span>}
         </span>
       )}
+      {cardio.map((sessao) => (
+        <span key={sessao.bloco_id} className="cartao-treino-cardio com-icone">
+          <IconeAtividade atividade={sessao.atividade} size={15} />
+          {resumoSessao(sessao)}
+        </span>
+      ))}
     </button>
   )
 }

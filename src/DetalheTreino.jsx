@@ -3,6 +3,8 @@ import { ChevronLeft, Pencil, Star, Trash2 } from 'lucide-react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
 import AvisoPesoCorporal from './AvisoPesoCorporal'
+import CardioLeitura from './CardioLeitura'
+import { sessoesDoTreino, textoDistancia } from './cardio'
 import Confirmar from './Confirmar'
 import { useCarga } from './contextoPesoCorporal'
 import EditorTreino from './EditorTreino'
@@ -93,6 +95,10 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
   }
 
   const numeros = numerarBlocos(treino.blocos)
+  // Um treino só de cardio mostra a distância em vez do volume (que seria 0 kg)
+  const sessoesCardio = sessoesDoTreino(treino)
+  const soCardio = treino.series.length === 0 && sessoesCardio.length > 0
+  const distanciaCardio = sessoesCardio.reduce((total, s) => total + (s.distancia_m ?? 0), 0)
   // Séries sem bloco conhecido (não devia acontecer depois da migração) aparecem num cartão à parte
   const idsBlocos = new Set(treino.blocos.map((b) => b.id))
   const semBloco = treino.series.filter((s) => !idsBlocos.has(s.bloco_id))
@@ -140,7 +146,11 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
         </p>
         <div className="numeros">
           <Numero valor={formatarMinutos(treino.duracao_min ?? 0)} rotulo="Duração" />
-          <Numero valor={`${formatarPeso(calcularVolume(treino.series, cargaDaSerie))} kg`} rotulo="Volume" />
+          {soCardio ? (
+            distanciaCardio > 0 && <Numero valor={textoDistancia(distanciaCardio)} rotulo="Distância" />
+          ) : (
+            <Numero valor={`${formatarPeso(calcularVolume(treino.series, cargaDaSerie))} kg`} rotulo="Volume" />
+          )}
         </div>
         <AvisoPesoCorporal mostrar={treino.series.some((s) => s.exercicios?.peso_corporal)} />
       </div>
@@ -149,15 +159,19 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
         <p className="subtitulo">Este treino não tem blocos. Toca em Editar para os adicionar.</p>
       )}
 
-      {treino.blocos.map((bloco, i) => (
-        <BlocoLeitura
-          key={bloco.id}
-          bloco={bloco}
-          titulo={tituloBloco(bloco, numeros[i], treino.series.filter((s) => s.bloco_id === bloco.id))}
-          series={treino.series.filter((s) => s.bloco_id === bloco.id)}
-          carga={cargaDaSerie}
-        />
-      ))}
+      {treino.blocos.map((bloco, i) =>
+        bloco.tipo === 'cardio' ? (
+          <CardioLeitura key={bloco.id} bloco={bloco} titulo={tituloBloco(bloco, numeros[i])} />
+        ) : (
+          <BlocoLeitura
+            key={bloco.id}
+            bloco={bloco}
+            titulo={tituloBloco(bloco, numeros[i], treino.series.filter((s) => s.bloco_id === bloco.id))}
+            series={treino.series.filter((s) => s.bloco_id === bloco.id)}
+            carga={cargaDaSerie}
+          />
+        )
+      )}
 
       {semBloco.length > 0 && (
         <BlocoLeitura

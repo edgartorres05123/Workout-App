@@ -4,6 +4,7 @@ import ConfigBloco from './ConfigBloco'
 import EscolherExercicio from './EscolherExercicio'
 import IconeBloco from './IconeBloco'
 import Janela from './Janela'
+import ListaAtividades from './ListaAtividades'
 import { GRUPOS_BLOCO, MINIMO_EXERCICIOS, NOME_TIPO, TIPOS_BLOCO, camposIniciais, letraExercicio } from './blocos'
 import { SEGUNDOS_ALVO_INICIAIS, ehCondicionamento } from './condicionamento'
 
@@ -12,7 +13,8 @@ import { SEGUNDOS_ALVO_INICIAIS, ehCondicionamento } from './condicionamento'
 // onCriar(tipo, exercicios, config) devolve uma mensagem de erro, ou null se correu bem; cada exercício
 // leva segundos_alvo (null = por reps). config: { voltas, duracao_seg, intervalo_seg }.
 // onMudarPesoCorporal(exercicio, valor): liga ou desliga o peso corporal (em todos os treinos).
-export default function NovoBloco({ onCriar, onMudarPesoCorporal, onFechar }) {
+// onCriarCardio(atividade): cria um bloco de cardio com essa atividade (grupo "Cardio e desportos").
+export default function NovoBloco({ onCriar, onCriarCardio, onMudarPesoCorporal, onFechar }) {
   const [tipo, setTipo] = useState(null)
   const [exercicios, setExercicios] = useState([]) // [{ ...exercicio, porTempo }]
   const [config, setConfig] = useState(null)
@@ -25,6 +27,14 @@ export default function NovoBloco({ onCriar, onMudarPesoCorporal, onFechar }) {
     setErro('')
     const comAlvos = lista.map((e) => ({ ...e, segundos_alvo: e.porTempo ? SEGUNDOS_ALVO_INICIAIS : null }))
     const mensagem = await onCriar(tipo, comAlvos, config ?? camposIniciais(tipo))
+    setACriar(false)
+    if (mensagem) setErro(mensagem)
+  }
+
+  async function criarCardio(atividade) {
+    setACriar(true)
+    setErro('')
+    const mensagem = await onCriarCardio(atividade)
     setACriar(false)
     if (mensagem) setErro(mensagem)
   }
@@ -64,24 +74,32 @@ export default function NovoBloco({ onCriar, onMudarPesoCorporal, onFechar }) {
       <Janela titulo={tipo ? `Novo bloco · ${NOME_TIPO[tipo]}` : 'Novo bloco'} onFechar={onFechar} baixa>
         <div className={`sheet-lista${tipo ? ` tipo-${tipo}` : ''}`}>
           {!tipo ? (
-            GRUPOS_BLOCO.map((grupo) => (
-              <section key={grupo.id} className="grupo-tipos" aria-label={grupo.nome}>
-                <h3 className="opcoes-titulo">{grupo.nome}</h3>
-                <div className="tipos-bloco">
-                  {TIPOS_BLOCO.filter((t) => t.grupo === grupo.id).map((t) => (
-                    <button key={t.id} className={`tipo-opcao tipo-${t.id}`} onClick={() => escolherTipo(t.id)}>
-                      <span className="tipo-opcao-icone">
-                        <IconeBloco tipo={t.id} size={20} />
-                      </span>
-                      <span className="tipo-opcao-textos">
-                        <span className="tipo-opcao-nome">{t.nome}</span>
-                        <span className="tipo-opcao-descricao">{t.descricao}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))
+            <>
+              {GRUPOS_BLOCO.map((grupo) => (
+                <section key={grupo.id} className="grupo-tipos" aria-label={grupo.nome}>
+                  <h3 className="opcoes-titulo">{grupo.nome}</h3>
+                  <div className="tipos-bloco">
+                    {TIPOS_BLOCO.filter((t) => t.grupo === grupo.id).map((t) => (
+                      <button key={t.id} className={`tipo-opcao tipo-${t.id}`} onClick={() => escolherTipo(t.id)}>
+                        <span className="tipo-opcao-icone">
+                          <IconeBloco tipo={t.id} size={20} />
+                        </span>
+                        <span className="tipo-opcao-textos">
+                          <span className="tipo-opcao-nome">{t.nome}</span>
+                          <span className="tipo-opcao-descricao">{t.descricao}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+              {onCriarCardio && (
+                <section className="grupo-tipos" aria-label="Cardio e desportos">
+                  <h3 className="opcoes-titulo">Cardio e desportos</h3>
+                  <ListaAtividades onEscolher={criarCardio} desativada={aCriar} />
+                </section>
+              )}
+            </>
           ) : (
             <>
               {ehCondicionamento(tipo) && (

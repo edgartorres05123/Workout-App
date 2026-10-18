@@ -3,15 +3,133 @@ import { ChevronDown, ChevronUp, Minus, Plus, Trash2, X } from 'lucide-react'
 import ConfigBloco from './ConfigBloco'
 import Confirmar from './Confirmar'
 import EscolherExercicio from './EscolherExercicio'
+import IconeAtividade from './IconeAtividade'
 import IconeBloco from './IconeBloco'
 import Janela from './Janela'
+import ListaAtividades from './ListaAtividades'
 import VistoPesoCorporal from './VistoPesoCorporal'
-import { GRUPOS_BLOCO, TIPOS_BLOCO, camposIniciais, letraExercicio, motivoTipoIndisponivel } from './blocos'
+import { nomeAtividade } from './atividades'
+import {
+  GRUPOS_BLOCO,
+  TIPOS_BLOCO,
+  atividadeDoBloco,
+  camposIniciais,
+  letraExercicio,
+  linhasCardio,
+  motivoTipoIndisponivel,
+} from './blocos'
+import { linhaFeita } from './cardio'
 import { SEGUNDOS_ALVO_INICIAIS, exercicioPorTempo } from './condicionamento'
 import { lerNumero, pesoParaInput } from './formatar'
 
 // Opções de um bloco (bottom sheet). Todas as funções on* devolvem uma mensagem de erro, ou null.
-export default function OpcoesBloco({
+// Os blocos de cardio têm opções próprias (a atividade em vez dos exercícios).
+export default function OpcoesBloco(props) {
+  return props.bloco.tipo === 'cardio' ? <OpcoesCardio {...props} /> : <OpcoesExercicios {...props} />
+}
+
+// Bloco de cardio: mudar a atividade (em todos os intervalos), notas, posição e apagar.
+// onMudarAtividade(atividade) devolve uma mensagem de erro, ou null.
+function OpcoesCardio({ bloco, titulo, primeiro, ultimo, onAtualizar, onMover, onApagar, onMudarAtividade, onFechar }) {
+  const [aMudar, setAMudar] = useState(false)
+  const [confirmar, setConfirmar] = useState(false)
+  const [notas, setNotas] = useState(bloco.notas ?? '')
+  const [aGravar, setAGravar] = useState(false)
+  const [erro, setErro] = useState('')
+  const atividade = atividadeDoBloco(bloco) ?? 'outra'
+  const feitos = linhasCardio(bloco).filter(linhaFeita).length
+
+  async function executar(operacao) {
+    setErro('')
+    setAGravar(true)
+    const mensagem = await operacao()
+    setAGravar(false)
+    if (mensagem) setErro(mensagem)
+    return mensagem
+  }
+
+  async function escolher(nova) {
+    if (nova !== atividade && !(await executar(() => onMudarAtividade(nova)))) setAMudar(false)
+    else if (nova === atividade) setAMudar(false)
+  }
+
+  function guardarNotas() {
+    const valor = notas.trim() === '' ? null : notas.trim()
+    if (valor !== (bloco.notas ?? null)) executar(() => onAtualizar({ notas: valor }))
+  }
+
+  return (
+    <>
+      <Janela titulo={titulo} onFechar={onFechar}>
+        <div className="sheet-lista opcoes-bloco tipo-cardio">
+          {erro && <p className="erro">{erro}</p>}
+
+          <h3 className="opcoes-titulo">Atividade</h3>
+          <div className="atividade-atual">
+            <span className="com-icone">
+              <IconeAtividade atividade={atividade} size={18} />
+              {nomeAtividade(atividade)}
+            </span>
+            <button className="botao-link" onClick={() => setAMudar((m) => !m)} aria-expanded={aMudar}>
+              {aMudar ? 'Fechar' : 'Mudar'}
+            </button>
+          </div>
+          {aMudar && <ListaAtividades onEscolher={escolher} desativada={aGravar} />}
+
+          <h3 className="opcoes-titulo">Notas do bloco</h3>
+          <textarea
+            rows={2}
+            placeholder="Ex: 8 × 400 m com 90 s de descanso"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            onBlur={guardarNotas}
+          />
+
+          <h3 className="opcoes-titulo">Posição no treino</h3>
+          <div className="linha-botoes">
+            <button className="botao-secundario com-icone" onClick={() => executar(() => onMover(-1))} disabled={primeiro || aGravar}>
+              <ChevronUp size={18} />
+              Para cima
+            </button>
+            <button className="botao-secundario com-icone" onClick={() => executar(() => onMover(1))} disabled={ultimo || aGravar}>
+              <ChevronDown size={18} />
+              Para baixo
+            </button>
+          </div>
+
+          <button
+            className="botao-perigo com-icone"
+            onClick={() => (feitos > 0 ? setConfirmar(true) : executar(onApagar))}
+            disabled={aGravar}
+          >
+            <Trash2 size={18} />
+            Apagar bloco
+          </button>
+        </div>
+      </Janela>
+
+      {confirmar && (
+        <Confirmar
+          titulo="Apagar bloco?"
+          textoConfirmar="Apagar bloco"
+          aProcessar={aGravar}
+          onConfirmar={async () => {
+            if (!(await executar(onApagar))) setConfirmar(false)
+          }}
+          onCancelar={() => setConfirmar(false)}
+        >
+          <p>
+            O bloco e {feitos === 1 ? 'o intervalo feito' : `os ${feitos} intervalos feitos`} serão apagados. Não é
+            possível desfazer.
+          </p>
+          {erro && <p className="erro">{erro}</p>}
+        </Confirmar>
+      )}
+    </>
+  )
+}
+
+function OpcoesExercicios({
   bloco,
   titulo,
   series,

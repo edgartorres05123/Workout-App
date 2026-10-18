@@ -1,9 +1,15 @@
 import { supabase } from './supabase'
 
-// Os blocos de um treino, com os exercícios e os alvos (e a configuração dos blocos de condicionamento)
+// Os campos de um intervalo de cardio (atividades_cardio). O treino_id é preenchido pela base de dados.
+export const CAMPOS_CARDIO =
+  'id, volta, atividade, duracao_seg, distancia_m, velocidade_kmh, inclinacao_pct, intensidade, fc_media, notas'
+
+// Os blocos de um treino, com os exercícios e os alvos (e a configuração dos blocos de condicionamento),
+// e os intervalos dos blocos de cardio
 const SELECT_BLOCOS =
   'blocos(id, ordem, tipo, voltas, notas, duracao_seg, intervalo_seg, tempo_seg, ' +
-  'bloco_exercicios(id, ordem, exercicio_id, reps_alvo, peso_alvo, segundos_alvo, exercicios(id, nome, peso_corporal)))'
+  'bloco_exercicios(id, ordem, exercicio_id, reps_alvo, peso_alvo, segundos_alvo, exercicios(id, nome, peso_corporal)), ' +
+  `atividades_cardio(${CAMPOS_CARDIO}))`
 
 // Um treino com as relações aninhadas: treinos → blocos → bloco_exercicios, e treinos → series.
 // Os exercícios vêm com peso_corporal, para a carga efetiva (ver pesoCorporal.js).
@@ -45,6 +51,29 @@ export function buscarTreinosTerminados() {
   )
 }
 
+// Os intervalos de cardio feitos (duração > 0) em treinos terminados, com a data do treino
+export function buscarAtividadesCardio() {
+  return buscarTudo(() =>
+    supabase
+      .from('atividades_cardio')
+      .select(`${CAMPOS_CARDIO}, bloco_id, treino_id, treinos!inner(data, duracao_min)`)
+      .gt('duracao_seg', 0)
+      .not('treinos.duracao_min', 'is', null)
+      .order('id')
+  )
+}
+
+// Quantas vezes fiz cada atividade (para pôr as mais usadas primeiro): Map(atividade → n)
+export async function buscarUsosAtividades() {
+  const resultado = await buscarTudo(() =>
+    supabase.from('atividades_cardio').select('id, atividade').gt('duracao_seg', 0).order('id')
+  )
+  if (resultado.erro) return { erro: resultado.erro }
+  const usos = new Map()
+  for (const { atividade } of resultado.linhas) usos.set(atividade, (usos.get(atividade) ?? 0) + 1)
+  return { usos }
+}
+
 // Todas as medições corporais (InBody)
 export function buscarMedicoes() {
   return buscarTudo(() => supabase.from('medicoes').select('*').order('id'))
@@ -64,6 +93,7 @@ const TABELAS_EXPORTACAO = [
   ['blocos', 'id'],
   ['bloco_exercicios', 'id'],
   ['series', 'id'],
+  ['atividades_cardio', 'id'],
   ['medicoes', 'id'],
 ]
 

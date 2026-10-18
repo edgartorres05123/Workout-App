@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Layers, Timer, Weight, X } from 'lucide-react'
 import { supabase } from './supabase'
+import { resumoSessao, sessoesDoTreino } from './cardio'
 import { SELECT_TREINO } from './consultas'
 import DetalheTreino from './DetalheTreino'
 import { useCarga } from './contextoPesoCorporal'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
+import IconeAtividade from './IconeAtividade'
 import {
   agruparPorExercicio,
   calcularVolume,
@@ -200,8 +202,12 @@ export default function Historico() {
   )
 }
 
+// Um treino na lista. Só de cardio: o ícone e o resumo da atividade ("Corrida · 8,2 km · 42:10 · 5:08 /km");
+// misto: o resumo do ginásio e uma linha por cada bloco de cardio.
 function CartaoTreino({ treino, onAbrir }) {
   const carga = useCarga()
+  const cardio = sessoesDoTreino(treino)
+  const soCardio = treino.series.length === 0 && cardio.length > 0
   const numSeries = treino.series.filter((s) => !s.aquecimento).length
   const nomes = agruparPorExercicio(treino.series).map((g) => g.exercicio.nome)
   const resto = nomes.length - MAX_NOMES
@@ -215,25 +221,42 @@ function CartaoTreino({ treino, onAbrir }) {
           {formatarHora(treino.data)}
         </span>
       </span>
-      <span className="cartao-treino-numeros">
-        <span className="com-icone">
-          <Timer size={15} aria-hidden="true" />
-          {formatarMinutos(treino.duracao_min)}
-        </span>
-        <span className="com-icone">
-          <Weight size={15} aria-hidden="true" />
-          {formatarPeso(calcularVolume(treino.series, (s) => carga(s, treino.data)))} kg
-        </span>
-        <span className="com-icone">
-          <Layers size={15} aria-hidden="true" />
-          {numSeries} {numSeries === 1 ? 'série' : 'séries'}
-        </span>
-      </span>
-      {nomes.length > 0 && (
-        <span className="cartao-treino-exercicios">
-          {nomes.slice(0, MAX_NOMES).join(', ')}
-          {resto > 0 && <span className="mais"> +{resto}</span>}
-        </span>
+      {soCardio ? (
+        cardio.map((sessao) => (
+          <span key={sessao.bloco_id} className="cartao-treino-cardio so-cardio com-icone">
+            <IconeAtividade atividade={sessao.atividade} size={18} />
+            {resumoSessao(sessao)}
+          </span>
+        ))
+      ) : (
+        <>
+          <span className="cartao-treino-numeros">
+            <span className="com-icone">
+              <Timer size={15} aria-hidden="true" />
+              {formatarMinutos(treino.duracao_min)}
+            </span>
+            <span className="com-icone">
+              <Weight size={15} aria-hidden="true" />
+              {formatarPeso(calcularVolume(treino.series, (s) => carga(s, treino.data)))} kg
+            </span>
+            <span className="com-icone">
+              <Layers size={15} aria-hidden="true" />
+              {numSeries} {numSeries === 1 ? 'série' : 'séries'}
+            </span>
+          </span>
+          {nomes.length > 0 && (
+            <span className="cartao-treino-exercicios">
+              {nomes.slice(0, MAX_NOMES).join(', ')}
+              {resto > 0 && <span className="mais"> +{resto}</span>}
+            </span>
+          )}
+          {cardio.map((sessao) => (
+            <span key={sessao.bloco_id} className="cartao-treino-cardio com-icone">
+              <IconeAtividade atividade={sessao.atividade} size={15} />
+              {resumoSessao(sessao)}
+            </span>
+          ))}
+        </>
       )}
     </button>
   )
@@ -242,8 +265,9 @@ function CartaoTreino({ treino, onAbrir }) {
 function Calendario({ diaSelecionado, onEscolherDia, versao }) {
   const [hoje] = useState(() => new Date())
   const [mes, setMes] = useState(() => new Date(hoje.getFullYear(), hoje.getMonth(), 1))
-  // Dias com treino do mês carregado: { mes: "2026-10-01", dias: Set("2026-10-17", ...) }
-  const [marcados, setMarcados] = useState({ mes: null, dias: new Set() })
+  // Dias com treino do mês carregado: { mes: "2026-10-01", dias: Set("2026-10-17", ...), soCardio: Set(...) }
+  // (soCardio: os dias em que todos os treinos foram só de cardio)
+  const [marcados, setMarcados] = useState({ mes: null, dias: new Set(), soCardio: new Set() })
   const [erro, setErro] = useState('')
 
   useEffect(() => {
@@ -251,7 +275,7 @@ function Calendario({ diaSelecionado, onEscolherDia, versao }) {
     const fim = new Date(mes.getFullYear(), mes.getMonth() + 1, 1)
     supabase
       .from('treinos')
-      .select('data')
+      .select('data, blocos(tipo)')
       .not('duracao_min', 'is', null)
       .gte('data', mes.toISOString())
       .lt('data', fim.toISOString())
@@ -259,7 +283,11 @@ function Calendario({ diaSelecionado, onEscolherDia, versao }) {
         if (!ativo) return
         if (error) return setErro(error.message)
         setErro('')
-        setMarcados({ mes: chaveDia(mes), dias: new Set(data.map((t) => chaveDia(t.data))) })
+        const dias = new Set(data.map((t) => chaveDia(t.data)))
+        const comGinasio = new Set(
+          data.filter((t) => !(t.blocos.length > 0 && t.blocos.every((b) => b.tipo === 'cardio'))).map((t) => chaveDia(t.data))
+        )
+        setMarcados({ mes: chaveDia(mes), dias, soCardio: new Set([...dias].filter((d) => !comGinasio.has(d))) })
       })
     return () => {
       ativo = false
@@ -270,7 +298,9 @@ function Calendario({ diaSelecionado, onEscolherDia, versao }) {
   const numMes = mes.getMonth()
   const diasNoMes = new Date(ano, numMes + 1, 0).getDate()
   const vazios = (mes.getDay() + 6) % 7 // a semana começa à segunda-feira
-  const diasComTreino = marcados.mes === chaveDia(mes) ? marcados.dias : new Set()
+  const doMes = marcados.mes === chaveDia(mes)
+  const diasComTreino = doMes ? marcados.dias : new Set()
+  const diasSoCardio = doMes ? marcados.soCardio : new Set()
   const ehMesAtual = ano === hoje.getFullYear() && numMes === hoje.getMonth()
   const chaveHoje = chaveDia(hoje)
   const titulo = formatarMes(mes)
@@ -309,7 +339,7 @@ function Calendario({ diaSelecionado, onEscolherDia, versao }) {
           const chave = chaveDia(new Date(ano, numMes, i + 1))
           const temTreino = diasComTreino.has(chave)
           const classes = ['calendario-dia']
-          if (temTreino) classes.push('com-treino')
+          if (temTreino) classes.push(diasSoCardio.has(chave) ? 'com-treino so-cardio' : 'com-treino')
           if (chave === diaSelecionado) classes.push('selecionado')
           if (chave === chaveHoje) classes.push('hoje')
           return (
@@ -324,6 +354,13 @@ function Calendario({ diaSelecionado, onEscolherDia, versao }) {
           )
         })}
       </div>
+
+      {diasSoCardio.size > 0 && (
+        <p className="calendario-legenda">
+          <span className="legenda-ponto" aria-hidden="true" /> Ginásio
+          <span className="legenda-ponto so-cardio" aria-hidden="true" /> Só cardio
+        </p>
+      )}
 
       {erro && <p className="erro">{erro}</p>}
     </div>

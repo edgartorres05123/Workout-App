@@ -34,6 +34,9 @@
   --amarelo-fundo: rgba(255, 212, 59, 0.15);
   --amarelo-borda: rgba(255, 212, 59, 0.4);
   --azul-borda: rgba(116, 192, 252, 0.4);
+  --ciano: #3bc9db;
+  --ciano-fundo: rgba(59, 201, 219, 0.15);
+  --ciano-borda: rgba(59, 201, 219, 0.4);
   --rosa: #f783ac;
   --rosa-fundo: rgba(247, 131, 172, 0.15);
   --rosa-borda: rgba(247, 131, 172, 0.4);
@@ -2647,3 +2650,169 @@ button,
 }
 
 .tipos-bloco.compacto { flex-wrap: wrap; }
+
+/* ---------- Cardio e desportos ---------- */
+
+.bloco-cardio,
+.tipo-cardio { --cor-tipo: var(--ciano); --cor-tipo-fundo: var(--ciano-fundo); --cor-tipo-borda: var(--ciano-borda); }
+
+/* Lista de atividades (novo bloco, opções e "Registar atividade") */
+.lista-atividades .pesquisa { margin-bottom: var(--e-2); }
+.grupo-atividades { margin-top: var(--e-3); }
+.grupo-atividades .grupo-tipos-nome { display: flex; align-items: center; gap: 6px; margin: 0 0 6px; }
+
+.grelha-atividades {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.atividade-opcao {
+  justify-content: flex-start;
+  gap: var(--e-2);
+  min-height: var(--toque);
+  margin: 0;
+  padding: var(--e-2) 10px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-campo);
+  background: var(--campo);
+  color: var(--texto);
+  font-size: var(--t-secundario);
+  font-weight: var(--p-medio);
+  text-align: left;
+}
+
+.atividade-opcao svg { flex-shrink: 0; color: var(--ciano); }
+.atividade-opcao span { min-width: 0; overflow-wrap: anywhere; }
+
+.atividade-atual {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  margin-bottom: var(--e-3);
+  font-weight: var(--p-titulo);
+}
+
+.atividade-atual svg { color: var(--ciano); }
+
+/* Campos de um intervalo */
+.campos-cardio { display: flex; flex-direction: column; gap: var(--e-2); }
+
+.campos-cardio-linha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: var(--e-2);
+}
+
+.campo-cardio { display: flex; flex-direction: column; min-width: 0; }
+
+.campo-cardio > span {
+  margin-bottom: var(--e-1);
+  font-size: var(--t-etiqueta);
+  color: var(--texto-suave);
+}
+
+.campo-cardio input { min-height: var(--toque); margin: 0; padding: 10px; }
+
+/* O valor calculado (a partir dos outros dois) tem outro estilo */
+.campo-cardio.calculado input {
+  border-style: dashed;
+  border-color: var(--ciano-borda);
+  background: var(--ciano-fundo);
+  color: var(--ciano);
+}
+
+.campo-cardio-calculado { color: var(--ciano); }
+
+.ritmo-cardio { margin: 0; font-size: var(--t-secundario); color: var(--texto-suave); }
+.ritmo-cardio strong { color: var(--texto); font-variant-numeric: tabular-nums; }
+
+.intensidade-rotulo {
+  display: block;
+  margin-bottom: var(--e-1);
+  font-size: var(--t-etiqueta);
+  color: var(--texto-suave);
+}
+
+.intensidade-opcoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.intensidade-opcoes .filtro { padding: 6px 12px; font-size: var(--t-pequeno); }
+
+/* Intervalos no editor */
+.intervalo-cardio { padding: var(--e-3) 0; border-top: 1px solid var(--borda); }
+.intervalo-cardio-topo { display: flex; align-items: center; gap: var(--e-2); margin-bottom: var(--e-2); }
+.intervalo-cardio-nome { flex: 1; font-size: var(--t-secundario); font-weight: var(--p-forte); color: var(--texto-suave); }
+.intervalo-cardio .volta-numero { width: 22px; }
+.intervalo-cardio.feito .volta-numero,
+.intervalo-cardio.feito .intervalo-cardio-nome { color: var(--cor-tipo); }
+
+.intervalo-cardio.feito .campo-cardio input:not(:focus) {
+  border-color: var(--cor-tipo-borda);
+}
+
+.acoes-cardio { margin-top: var(--e-3); flex-wrap: wrap; }
+.acoes-cardio button { flex: 1; min-width: 140px; }
+.acoes-cardio .ativo { border-color: var(--cor-tipo); color: var(--cor-tipo); }
+
+/* Intervalos no detalhe */
+.intervalos-leitura li { align-items: flex-start; }
+.intervalo-leitura-textos { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.intervalo-leitura-notas { font-size: var(--t-pequeno); color: var(--texto-suave); }
+
+/* Histórico e início */
+.cartao-treino-cardio {
+  gap: 6px;
+  font-size: var(--t-secundario);
+  color: var(--texto-suave);
+  text-align: left;
+}
+
+.cartao-treino-cardio svg { color: var(--ciano); }
+.cartao-treino-cardio.so-cardio { font-size: 15px; font-weight: var(--p-forte); color: var(--texto); }
+
+.cartao-cardio-semana {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-2) var(--e-3);
+  margin-top: var(--e-3);
+  padding: var(--e-3) var(--e-4);
+}
+
+.cartao-cardio-semana .rotulo-pequeno svg { color: var(--ciano); }
+
+.cartao-cardio-semana-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e-1) var(--e-3);
+  font-weight: var(--p-titulo);
+  font-variant-numeric: tabular-nums;
+}
+
+.inicio-acoes-linha { display: flex; gap: var(--e-2); }
+.inicio-acoes-linha .botao-grande { flex: 1.4; margin: 0; }
+.inicio-acoes-linha .botao-secundario { flex: 1; margin: 0; padding-inline: var(--e-2); }
+.inicio-acoes-linha + * { margin-top: var(--e-2); }
+
+/* Calendário: os dias só com cardio têm outro tom */
+.calendario-dia.com-treino.so-cardio { background: var(--ciano-fundo); color: var(--ciano); }
+.calendario-dia.selecionado.so-cardio { background: var(--ciano); color: var(--sobre-verde); }
+
+.calendario-legenda {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--e-3) 0 0;
+  font-size: var(--t-pequeno);
+  color: var(--texto-suave);
+}
+
+.legenda-ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--verde);
+}
+
+.legenda-ponto.so-cardio { margin-left: var(--e-3); background: var(--ciano); }

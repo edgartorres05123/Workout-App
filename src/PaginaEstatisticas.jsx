@@ -7,6 +7,7 @@ import DetalheExercicio from './DetalheExercicio'
 import DetalheTreino from './DetalheTreino'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
+import EstatisticasCardio from './EstatisticasCardio'
 import Janela from './Janela'
 import { CORES } from './cores'
 import Grafico from './Grafico'
@@ -40,6 +41,11 @@ const METRICAS = [
   { id: 'volume', nome: 'Volume' },
   { id: 'duracao', nome: 'Duração' },
   { id: 'series', nome: 'Séries' },
+]
+// Separadores internos: o ginásio (força) e o cardio
+const SEPARADORES = [
+  { id: 'ginasio', nome: 'Ginásio' },
+  { id: 'cardio', nome: 'Cardio' },
 ]
 const UNIDADES = [
   { id: 'semana', nome: 'Semanas' },
@@ -84,6 +90,7 @@ export default function PaginaEstatisticas({ onIrPara }) {
   const ultimoPedido = useRef(0)
   const scrollDaPagina = useRef(0)
   const carga = useCarga()
+  const [separador, setSeparador] = useState('ginasio')
 
   function carregar() {
     const id = ++ultimoPedido.current
@@ -130,9 +137,12 @@ export default function PaginaEstatisticas({ onIrPara }) {
   return (
     <div>
       <div hidden={Boolean(vista)}>
+        <Pilulas opcoes={SEPARADORES} valor={separador} onMudar={setSeparador} rotulo="Estatísticas de" />
         {erro && <p className="erro">{erro}</p>}
 
-        {dados === null ? (
+        {separador === 'cardio' ? (
+          <EstatisticasCardio agora={agora} onAbrirTreino={abrirTreino} />
+        ) : dados === null ? (
           !erro && <Esqueleto numeros={3} cartoes={3} linhas={3} />
         ) : dados.treinos.length === 0 ? (
           <EstadoVazio

@@ -4,6 +4,8 @@ import { supabase } from './supabase'
 import { useAvisos } from './avisos'
 import AvisoPesoCorporal from './AvisoPesoCorporal'
 import CartaoBloco from './CartaoBloco'
+import CartaoCardio from './CartaoCardio'
+import { CAMPOS_CARDIO } from './consultas'
 import { useCarga, usePesoCorporalNaData } from './contextoPesoCorporal'
 import Confirmar from './Confirmar'
 import EstadoVazio from './EstadoVazio'
@@ -14,7 +16,9 @@ import OpcoesBloco from './OpcoesBloco'
 import SemanaNoTreino from './SemanaNoTreino'
 import {
   REPS_ALVO_INICIAIS,
+  atividadeDoBloco,
   camposIniciais,
+  linhasCardio,
   normalizarTreino,
   numerarBlocos,
   progressoVoltas,
@@ -25,6 +29,7 @@ import {
   tipoAposMudarExercicios,
   tituloBloco,
 } from './blocos'
+import { linhaFeita, resumoSessao, sessoesDoTreino } from './cardio'
 import {
   calcularVolume,
   dataParaInput,
@@ -73,8 +78,17 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     return null
   }
 
+  // O resumo do fim (o do ginásio e uma linha com o cardio, se houver)
+  function resumoFinal(duracao) {
+    const cardio = sessoesDoTreino(treino).map(resumoSessao).join(' · ')
+    return { ...resumoTreino(treino.series, duracao, cargaDaSerie), cardio: cardio || null }
+  }
+
+  // Um treino sem séries e sem intervalos de cardio feitos está vazio
+  const temCardioFeito = treino.blocos.some((b) => b.tipo === 'cardio' && linhasCardio(b).some(linhaFeita))
+
   async function terminar() {
-    if (treino.series.length === 0) return setConfirmar('vazio')
+    if (treino.series.length === 0 && !temCardioFeito) return setConfirmar('vazio')
     const duracao = Math.max(1, Math.round((Date.now() - new Date(treino.data)) / 60000))
     setAGravar(true)
     setErro('')
@@ -82,7 +96,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     setAGravar(false)
     if (mensagem) return setErro(mensagem)
     avisar('Treino guardado')
-    onTerminado(resumoTreino(treino.series, duracao, cargaDaSerie))
+    onTerminado(resumoFinal(duracao))
   }
 
   async function apagarTreino() {
@@ -122,6 +136,73 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     onAlterar((t) => ({ ...t, blocos: [...t.blocos, { ...bloco, bloco_exercicios: doBloco ?? [] }] }))
     if (erroExercicios) return erroExercicios.message
     setACriarBloco(false)
+    return null
+  }
+
+  // ---------- Cardio ----------
+
+  // Um bloco de cardio com a atividade e um intervalo por fazer (duração 0)
+  async function criarBlocoCardio(atividade) {
+    const { data: bloco, error } = await supabase
+      .from('blocos')
+      .insert({ treino_id: treino.id, ordem: proximaOrdem(treino.blocos), tipo: 'cardio', voltas: 1 })
+      .select(CAMPOS_BLOCO)
+      .single()
+    if (error) return error.message
+    const { data: linha, error: erroLinha } = await supabase
+      .from('atividades_cardio')
+      .insert({ bloco_id: bloco.id, volta: 1, atividade, duracao_seg: 0 })
+      .select(CAMPOS_CARDIO)
+      .single()
+    onAlterar((t) => ({ ...t, blocos: [...t.blocos, { ...bloco, bloco_exercicios: [], atividades_cardio: linha ? [linha] : [] }] }))
+    if (erroLinha) return erroLinha.message
+    setACriarBloco(false)
+    return null
+  }
+
+  const mudarLinhasCardio = (blocoId, mudar) =>
+    onAlterar((t) => ({
+      ...t,
+      blocos: t.blocos.map((b) => (b.id === blocoId ? { ...b, atividades_cardio: mudar(b.atividades_cardio ?? []) } : b)),
+    }))
+
+  async function guardarIntervalo(bloco, linha, campos) {
+    const { data, error } = await supabase
+      .from('atividades_cardio')
+      .update(campos)
+      .eq('id', linha.id)
+      .select(CAMPOS_CARDIO)
+      .single()
+    if (error) return error.message
+    mudarLinhasCardio(bloco.id, (linhas) => linhas.map((l) => (l.id === linha.id ? data : l)))
+    return null
+  }
+
+  async function adicionarIntervalo(bloco) {
+    const linhas = linhasCardio(bloco)
+    const volta = linhas.reduce((maior, l) => Math.max(maior, l.volta ?? 1), 0) + 1
+    const { data, error } = await supabase
+      .from('atividades_cardio')
+      .insert({ bloco_id: bloco.id, volta, atividade: atividadeDoBloco(bloco) ?? 'outra', duracao_seg: 0 })
+      .select(CAMPOS_CARDIO)
+      .single()
+    if (error) return error.message
+    mudarLinhasCardio(bloco.id, (atuais) => [...atuais, data])
+    return null
+  }
+
+  async function removerIntervalo(bloco, linha) {
+    const { error } = await supabase.from('atividades_cardio').delete().eq('id', linha.id)
+    if (error) return error.message
+    mudarLinhasCardio(bloco.id, (atuais) => atuais.filter((l) => l.id !== linha.id))
+    return null
+  }
+
+  // Muda a atividade de todos os intervalos do bloco
+  async function mudarAtividade(bloco, atividade) {
+    const { error } = await supabase.from('atividades_cardio').update({ atividade }).eq('bloco_id', bloco.id)
+    if (error) return error.message
+    mudarLinhasCardio(bloco.id, (atuais) => atuais.map((l) => ({ ...l, atividade })))
     return null
   }
 
@@ -380,23 +461,36 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
         />
       )}
 
-      {treino.blocos.map((bloco, i) => (
-        <CartaoBloco
-          key={bloco.id}
-          bloco={bloco}
-          titulo={tituloBloco(bloco, numeros[i], seriesDoBloco(bloco.id))}
-          series={seriesDoBloco(bloco.id)}
-          dataTreino={treino.data}
-          pesoCorporalKg={pesoCorporalKg}
-          onOpcoes={() => setOpcoesId(bloco.id)}
-          onMudarVoltas={(delta) => mudarVoltas(bloco, delta)}
-          onGravarVolta={(volta, lista) => gravarVolta(bloco, volta, lista)}
-          onDesfazerVolta={(volta) => desfazerVolta(bloco, volta)}
-          onGuardarSerie={(volta, exercicioId, dados) => guardarSerie(bloco, volta, exercicioId, dados)}
-          onAtualizar={(campos) => atualizarBloco(bloco.id, campos)}
-          onRegistarAmrap={(lista, voltas) => registarAmrap(bloco, lista, voltas)}
-        />
-      ))}
+      {treino.blocos.map((bloco, i) =>
+        bloco.tipo === 'cardio' ? (
+          <CartaoCardio
+            key={bloco.id}
+            bloco={bloco}
+            titulo={tituloBloco(bloco, numeros[i])}
+            aoVivo={modo === 'aoVivo'}
+            onOpcoes={() => setOpcoesId(bloco.id)}
+            onGuardarIntervalo={(linha, campos) => guardarIntervalo(bloco, linha, campos)}
+            onAdicionarIntervalo={() => adicionarIntervalo(bloco)}
+            onRemoverIntervalo={(linha) => removerIntervalo(bloco, linha)}
+          />
+        ) : (
+          <CartaoBloco
+            key={bloco.id}
+            bloco={bloco}
+            titulo={tituloBloco(bloco, numeros[i], seriesDoBloco(bloco.id))}
+            series={seriesDoBloco(bloco.id)}
+            dataTreino={treino.data}
+            pesoCorporalKg={pesoCorporalKg}
+            onOpcoes={() => setOpcoesId(bloco.id)}
+            onMudarVoltas={(delta) => mudarVoltas(bloco, delta)}
+            onGravarVolta={(volta, lista) => gravarVolta(bloco, volta, lista)}
+            onDesfazerVolta={(volta) => desfazerVolta(bloco, volta)}
+            onGuardarSerie={(volta, exercicioId, dados) => guardarSerie(bloco, volta, exercicioId, dados)}
+            onAtualizar={(campos) => atualizarBloco(bloco.id, campos)}
+            onRegistarAmrap={(lista, voltas) => registarAmrap(bloco, lista, voltas)}
+          />
+        )
+      )}
 
       <button className="botao-secundario com-icone" onClick={() => setACriarBloco(true)}>
         <Plus size={20} />
@@ -425,7 +519,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
             className="botao-grande com-icone"
             onClick={() => {
               avisar('Treino guardado')
-              onConcluido(resumoTreino(treino.series, treino.duracao_min ?? 0, cargaDaSerie))
+              onConcluido(resumoFinal(treino.duracao_min ?? 0))
             }}
           >
             <Check size={20} />
@@ -464,6 +558,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
       {aCriarBloco && (
         <NovoBloco
           onCriar={(tipo, exercicios, config) => criarBloco(tipo, exercicios, REPS_ALVO_INICIAIS, config)}
+          onCriarCardio={criarBlocoCardio}
           onMudarPesoCorporal={mudarPesoCorporal} onFechar={() => setACriarBloco(false)} />
       )}
 
@@ -488,6 +583,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
           onAtualizarExercicio={(beId, campos) => atualizarExercicio(blocoComOpcoes.id, beId, campos)}
           onMoverExercicio={(indice, direcao) => moverExercicio(blocoComOpcoes, indice, direcao)}
           onMudarPesoCorporal={mudarPesoCorporal}
+          onMudarAtividade={(atividade) => mudarAtividade(blocoComOpcoes, atividade)}
           onFechar={() => setOpcoesId(null)}
         />
       )}
