@@ -1,6 +1,7 @@
 // Exercícios de peso corporal (elevações, fundos, flexões...). Nestes exercícios, series.peso_kg é o
 // PESO EXTRA (0, positivo com cinto ou colete, negativo quando é assistido). O peso corporal não fica
 // na série: vem das medições, na data do treino. Funções puras, para poderem ser testadas.
+import { seriePorTempo, textoSegundos } from './condicionamento'
 import { chaveDia, formatarPeso } from './formatar'
 
 const arredondar = (valor) => Math.round(valor * 100) / 100
@@ -62,6 +63,13 @@ export function textoCarga(pesoKg, pesoCorporal = false) {
 // Uma série: "10 × 60 kg", "10 × PC", "10 × PC + 10 kg", "10 × PC − 20 kg"
 export function textoSerie(repeticoes, pesoKg, pesoCorporal = false) {
   return `${repeticoes} × ${textoCarga(pesoKg, pesoCorporal)}`
+}
+
+// Uma série gravada, por reps ou por tempo: "10 × 60 kg", "10 × PC + 10 kg", "45 s", "45 s × 10 kg"
+export function textoDaSerie(serie, pesoCorporal = false) {
+  if (!seriePorTempo(serie)) return textoSerie(serie.repeticoes, serie.peso_kg, pesoCorporal)
+  const tempo = textoSegundos(serie.duracao_seg)
+  return Number(serie.peso_kg) !== 0 ? `${tempo} × ${textoCarga(serie.peso_kg, pesoCorporal)}` : tempo
 }
 
 // Só a decomposição: "PC 74,5 + 10", "PC 74,5", "PC 74,5 − 20"; sem peso corporal conhecido, null

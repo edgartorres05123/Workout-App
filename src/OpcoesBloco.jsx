@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Minus, Plus, Trash2, X } from 'lucide-react'
+import ConfigBloco from './ConfigBloco'
 import Confirmar from './Confirmar'
 import EscolherExercicio from './EscolherExercicio'
 import IconeBloco from './IconeBloco'
 import Janela from './Janela'
 import VistoPesoCorporal from './VistoPesoCorporal'
-import { TIPOS_BLOCO, letraExercicio, motivoTipoIndisponivel } from './blocos'
+import { GRUPOS_BLOCO, TIPOS_BLOCO, camposIniciais, letraExercicio, motivoTipoIndisponivel } from './blocos'
+import { SEGUNDOS_ALVO_INICIAIS, exercicioPorTempo } from './condicionamento'
 import { lerNumero, pesoParaInput } from './formatar'
 
 // Opções de um bloco (bottom sheet). Todas as funções on* devolvem uma mensagem de erro, ou null.
@@ -48,8 +50,13 @@ export default function OpcoesBloco({
     if (tipo === bloco.tipo) return
     const motivo = motivoTipoIndisponivel(tipo, exercicios.length)
     if (motivo) return setErro(motivo)
+    // Ao passar para AMRAP ou EMOM, o bloco ganha o tempo limite ou o intervalo, se ainda não os tiver
+    const iniciais = camposIniciais(tipo)
+    const campos = { tipo }
+    if (tipo === 'amrap' && !bloco.duracao_seg) campos.duracao_seg = iniciais.duracao_seg
+    if (tipo === 'emom' && !bloco.intervalo_seg) campos.intervalo_seg = iniciais.intervalo_seg
     executar(async () => {
-      const mensagem = await onAtualizar({ tipo })
+      const mensagem = await onAtualizar(campos)
       // Uma super série precisa de pelo menos 2 exercícios: abre logo o seletor
       if (!mensagem && tipo === 'superserie' && exercicios.length < 2) setAEscolher(true)
       return mensagem
@@ -85,43 +92,64 @@ export default function OpcoesBloco({
           {erro && <p className="erro">{erro}</p>}
 
           <h3 className="opcoes-titulo">Tipo</h3>
-          <div className="tipos-bloco compacto">
-            {TIPOS_BLOCO.map((t) => (
-              <button
-                key={t.id}
-                className={t.id === bloco.tipo ? `tipo-opcao tipo-${t.id} ativo` : `tipo-opcao tipo-${t.id}`}
-                onClick={() => mudarTipo(t.id)}
-                disabled={aGravar}
-                aria-pressed={t.id === bloco.tipo}
-              >
-                <IconeBloco tipo={t.id} size={18} />
-                <span className="tipo-opcao-nome">{t.nome}</span>
-              </button>
-            ))}
-          </div>
+          {GRUPOS_BLOCO.map((grupo) => (
+            <div key={grupo.id} className="grupo-tipos-compacto">
+              <span className="grupo-tipos-nome">{grupo.nome}</span>
+              <div className="tipos-bloco compacto">
+                {TIPOS_BLOCO.filter((t) => t.grupo === grupo.id).map((t) => (
+                  <button
+                    key={t.id}
+                    className={t.id === bloco.tipo ? `tipo-opcao tipo-${t.id} ativo` : `tipo-opcao tipo-${t.id}`}
+                    onClick={() => mudarTipo(t.id)}
+                    disabled={aGravar}
+                    aria-pressed={t.id === bloco.tipo}
+                  >
+                    <IconeBloco tipo={t.id} size={18} />
+                    <span className="tipo-opcao-nome">{t.nome}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
 
-          <h3 className="opcoes-titulo">Voltas</h3>
-          <div className="bloco-voltas esquerda">
-            <button
-              className="botao-redondo"
-              onClick={() => executar(() => onMudarVoltas(-1))}
-              disabled={bloco.voltas <= 1 || aGravar}
-              aria-label="Menos uma volta"
-            >
-              <Minus size={20} />
-            </button>
-            <span className="numero-voltas">
-              {bloco.voltas} {bloco.voltas === 1 ? 'volta' : 'voltas'}
-            </span>
-            <button
-              className="botao-redondo"
-              onClick={() => executar(() => onMudarVoltas(1))}
-              disabled={aGravar}
-              aria-label="Mais uma volta"
-            >
-              <Plus size={20} />
-            </button>
-          </div>
+          <ConfigBloco
+            key={`${bloco.tipo}-${bloco.duracao_seg}-${bloco.intervalo_seg}`}
+            tipo={bloco.tipo}
+            valores={bloco}
+            onMudar={(campos) => executar(() => onAtualizar(campos))}
+          />
+
+          {bloco.tipo === 'amrap' ? (
+            <p className="nota">No AMRAP, as voltas são o resultado: registam-se no bloco, com "voltas + reps extra".</p>
+          ) : (
+            <>
+              <h3 className="opcoes-titulo">{bloco.tipo === 'emom' ? 'Intervalos' : 'Voltas'}</h3>
+              <div className="bloco-voltas esquerda">
+                <button
+                  className="botao-redondo"
+                  onClick={() => executar(() => onMudarVoltas(-1))}
+                  disabled={bloco.voltas <= 1 || aGravar}
+                  aria-label="Menos uma volta"
+                >
+                  <Minus size={20} />
+                </button>
+                <span className="numero-voltas">
+                  {bloco.voltas}{' '}
+                  {bloco.tipo === 'emom'
+                    ? bloco.voltas === 1 ? 'intervalo' : 'intervalos'
+                    : bloco.voltas === 1 ? 'volta' : 'voltas'}
+                </span>
+                <button
+                  className="botao-redondo"
+                  onClick={() => executar(() => onMudarVoltas(1))}
+                  disabled={aGravar}
+                  aria-label="Mais uma volta"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+            </>
+          )}
 
           <h3 className="opcoes-titulo">Exercícios</h3>
           {exercicios.length === 0 && <p className="nota sem-margem-topo">Ainda não há exercícios neste bloco.</p>}
@@ -157,7 +185,7 @@ export default function OpcoesBloco({
                   </button>
                 </div>
                 <Alvos
-                  key={`${be.id}-${be.reps_alvo}-${be.peso_alvo}-${Boolean(be.exercicios?.peso_corporal)}`}
+                  key={`${be.id}-${be.reps_alvo}-${be.peso_alvo}-${be.segundos_alvo}-${Boolean(be.exercicios?.peso_corporal)}`}
                   blocoExercicio={be}
                   pesoCorporal={Boolean(be.exercicios?.peso_corporal)}
                   onGuardar={(campos) => executar(() => onAtualizarExercicio(be.id, campos))}
@@ -247,10 +275,12 @@ export default function OpcoesBloco({
   )
 }
 
-// Reps-alvo e peso-alvo de um exercício do bloco; gravam ao sair do campo.
-// Nos exercícios de peso corporal, o peso-alvo é o EXTRA e pode ser negativo (assistido).
+// Reps-alvo (ou segundos-alvo, nos exercícios por tempo) e peso-alvo de um exercício do bloco; gravam ao
+// sair do campo. Nos exercícios de peso corporal, o peso-alvo é o EXTRA e pode ser negativo (assistido).
 function Alvos({ blocoExercicio, pesoCorporal = false, onGuardar }) {
+  const porTempo = exercicioPorTempo(blocoExercicio)
   const [reps, setReps] = useState(String(blocoExercicio.reps_alvo ?? ''))
+  const [segundos, setSegundos] = useState(String(blocoExercicio.segundos_alvo ?? ''))
   const [kg, setKg] = useState(
     blocoExercicio.peso_alvo === null || blocoExercicio.peso_alvo === undefined ? '' : pesoParaInput(blocoExercicio.peso_alvo)
   )
@@ -265,6 +295,17 @@ function Alvos({ blocoExercicio, pesoCorporal = false, onGuardar }) {
     }
     setErro('')
     if (valor !== blocoExercicio.reps_alvo) onGuardar({ reps_alvo: valor })
+  }
+
+  function guardarSegundos() {
+    const valor = Number(segundos.trim())
+    if (!Number.isInteger(valor) || valor <= 0 || valor > 36000) {
+      setErro('Os segundos-alvo têm de ser um número inteiro maior do que 0.')
+      setSegundos(String(blocoExercicio.segundos_alvo ?? ''))
+      return
+    }
+    setErro('')
+    if (valor !== blocoExercicio.segundos_alvo) onGuardar({ segundos_alvo: valor })
   }
 
   function guardarKg(textoEscolhido = kg) {
@@ -286,18 +327,50 @@ function Alvos({ blocoExercicio, pesoCorporal = false, onGuardar }) {
 
   return (
     <>
+      <div className="alternar-tempo" role="group" aria-label="Contar reps ou tempo">
+        <button
+          type="button"
+          className={porTempo ? 'filtro' : 'filtro ativo'}
+          aria-pressed={!porTempo}
+          onClick={() => porTempo && onGuardar({ segundos_alvo: null })}
+        >
+          Por reps
+        </button>
+        <button
+          type="button"
+          className={porTempo ? 'filtro ativo' : 'filtro'}
+          aria-pressed={porTempo}
+          onClick={() => !porTempo && onGuardar({ segundos_alvo: SEGUNDOS_ALVO_INICIAIS })}
+        >
+          Por tempo
+        </button>
+      </div>
       <div className="alvos">
-        <label>
-          <span>Reps-alvo</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={reps}
-            onChange={(e) => setReps(e.target.value)}
-            onBlur={guardarReps}
-            onKeyDown={sairComEnter}
-          />
-        </label>
+        {porTempo ? (
+          <label>
+            <span>Segundos-alvo</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={segundos}
+              onChange={(e) => setSegundos(e.target.value)}
+              onBlur={guardarSegundos}
+              onKeyDown={sairComEnter}
+            />
+          </label>
+        ) : (
+          <label>
+            <span>Reps-alvo</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={reps}
+              onChange={(e) => setReps(e.target.value)}
+              onBlur={guardarReps}
+              onKeyDown={sairComEnter}
+            />
+          </label>
+        )}
         <label>
           <span>{pesoCorporal ? '+ kg extra (alvo, opcional)' : 'Peso-alvo (kg, opcional)'}</span>
           {pesoCorporal ? (

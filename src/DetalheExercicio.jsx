@@ -11,7 +11,8 @@ import EscolherExercicio from './EscolherExercicio'
 import Esqueleto from './Esqueleto'
 import Numero from './Numero'
 import VistoPesoCorporal from './VistoPesoCorporal'
-import { resumoExercicio, sessoesPorTreino } from './estatisticas'
+import { textoSegundos } from './condicionamento'
+import { resumoExercicio, resumoTempo, sessoesPorTreino } from './estatisticas'
 import {
   formatarDataCurta,
   formatarDataExtenso,
@@ -20,7 +21,7 @@ import {
   nomesIguais,
 } from './formatar'
 import { MUSCULOS, proximoEstado } from './musculos'
-import { decomposicaoCarga, pesoCorporalNaData, textoCarga, textoSerie } from './pesoCorporal'
+import { decomposicaoCarga, pesoCorporalNaData, textoCarga, textoDaSerie, textoSerie } from './pesoCorporal'
 
 // Os gráficos (Chart.js) só são descarregados quando são precisos
 const EvolucaoExercicio = lazy(() => import('./EvolucaoExercicio'))
@@ -32,7 +33,7 @@ function buscarSeries(exercicioId) {
   return buscarTudo(() =>
     supabase
       .from('series')
-      .select('id, treino_id, ordem, repeticoes, peso_kg, aquecimento, treinos!inner(id, data)')
+      .select('id, treino_id, ordem, repeticoes, peso_kg, duracao_seg, aquecimento, treinos!inner(id, data)')
       .eq('exercicio_id', exercicioId)
       .not('treinos.duracao_min', 'is', null)
       .order('id')
@@ -201,6 +202,8 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
 
   const pc = Boolean(exercicio.peso_corporal)
   const resumo = series && resumoExercicio(series, carga)
+  // As séries por tempo (prancha...) não têm 1RM nem recordes de peso: mostra-se o melhor tempo
+  const tempo = series && resumoTempo(series)
   const sessoes = series ? sessoesPorTreino(series) : []
   // Decomposição do recorde de peso nos exercícios de peso corporal: "PC 74,5 + 10"
   const decomposicaoRecorde =
@@ -242,6 +245,16 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
           <h2>Resumo</h2>
           {series === null ? (
             <Esqueleto cartoes={1} linhas={3} />
+          ) : !resumo && tempo ? (
+            <div className="estatisticas">
+              <Numero valor={tempo.numTreinos} rotulo={tempo.numTreinos === 1 ? 'Treino' : 'Treinos'} />
+              <Numero
+                valor={textoSegundos(tempo.melhor.duracao_seg)}
+                rotulo={`Melhor tempo${Number(tempo.melhor.peso_kg) !== 0 ? ` · ${textoCarga(tempo.melhor.peso_kg, pc)}` : ''}`}
+              />
+              <Numero valor={formatarDataCurta(tempo.primeira)} rotulo="Primeira vez" />
+              <Numero valor={formatarDataCurta(tempo.ultima)} rotulo="Última vez" />
+            </div>
           ) : !resumo ? (
             <p className="subtitulo sem-margem">Ainda não há séries deste exercício em treinos terminados.</p>
           ) : (
@@ -259,6 +272,7 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
                 valor={`${resumo.maisReps.repeticoes} reps`}
                 rotulo={`Mais repetições · ${textoCarga(resumo.maisReps.peso_kg, pc)}`}
               />
+              {tempo && <Numero valor={textoSegundos(tempo.melhor.duracao_seg)} rotulo="Melhor tempo" />}
               <Numero valor={formatarDataCurta(resumo.primeira)} rotulo="Primeira vez" />
               <Numero valor={formatarDataCurta(resumo.ultima)} rotulo="Última vez" />
             </div>
@@ -288,7 +302,7 @@ export default function DetalheExercicio({ exercicio, todos, onVoltar, onAlterar
                         <span key={s.id} className={s.aquecimento ? 'aquecimento' : undefined}>
                           {i > 0 && ' · '}
                           {s.aquecimento && 'A '}
-                          {textoSerie(s.repeticoes, s.peso_kg, pc)}
+                          {textoDaSerie(s, pc)}
                         </span>
                       ))}
                     </span>

@@ -1,4 +1,5 @@
-// Modelos de treino prontos (Push, Pull, Legs, Upper, Lower e Full body), fixos no código.
+// Modelos de treino prontos (Push, Pull, Legs, Upper, Lower e Full body, e exemplos de condicionamento:
+// um AMRAP, um EMOM e um circuito), fixos no código.
 // Cada exercício do modelo tem o nome, as reps-alvo, os músculos (principais e secundários) e se é de
 // peso corporal. Ao usar um modelo, cada exercício é associado a um dos meus pelo nome (ignorando
 // acentos e maiúsculas); os que não existem são criados antes de começar, já com os músculos e o PC.
@@ -27,11 +28,20 @@ const EXERCICIOS = {
   'Elevação de gémeos': { principais: ['gemeos'], secundarios: [] },
   'Elevação de pernas suspenso': { principais: ['abdominais'], secundarios: ['antebracos'], pesoCorporal: true },
   Abdominais: { principais: ['abdominais'], secundarios: [], pesoCorporal: true },
+  'Flexões': { principais: ['peito'], secundarios: ['triceps', 'ombros'], pesoCorporal: true },
+  Burpees: { principais: ['quadriceps', 'peito'], secundarios: ['ombros', 'abdominais'], pesoCorporal: true },
+  'Kettlebell swing': { principais: ['gluteos', 'isquiotibiais'], secundarios: ['lombar', 'ombros'] },
+  Prancha: { principais: ['abdominais'], secundarios: ['lombar', 'ombros'], pesoCorporal: true },
+  'Agachamento com salto': { principais: ['quadriceps', 'gluteos'], secundarios: ['gemeos'], pesoCorporal: true },
 }
 
+// Cada exercício de um bloco: [nome, reps] ou, por tempo, [nome, null, segundos]
 const aquecimento = (nome) => ({ tipo: 'aquecimento', voltas: 2, exercicios: [[nome, 12]] })
 const serie = (nome, reps, voltas = 3) => ({ tipo: 'serie', voltas, exercicios: [[nome, reps]] })
 const superSerie = (a, b, voltas = 3) => ({ tipo: 'superserie', voltas, exercicios: [a, b] })
+const circuito = (voltas, ...exercicios) => ({ tipo: 'circuito', voltas, exercicios })
+const amrap = (minutos, ...exercicios) => ({ tipo: 'amrap', voltas: 1, duracao_seg: minutos * 60, exercicios })
+const emom = (intervalos, ...exercicios) => ({ tipo: 'emom', voltas: intervalos, intervalo_seg: 60, exercicios })
 
 export const MODELOS = [
   {
@@ -111,6 +121,29 @@ export const MODELOS = [
       serie('Abdominais', 15),
     ],
   },
+  {
+    id: 'amrap-full',
+    nome: 'Full body AMRAP 15 min',
+    descricao: 'Condicionamento: o máximo de voltas em 15 minutos',
+    blocos: [
+      aquecimento('Agachamento'),
+      amrap(15, ['Agachamento', 15], ['Flexões', 10], ['Kettlebell swing', 15], ['Burpees', 5]),
+    ],
+  },
+  {
+    id: 'emom-12',
+    nome: 'EMOM 12 min',
+    descricao: 'Condicionamento: a cada minuto, um exercício (alternado)',
+    blocos: [emom(12, ['Kettlebell swing', 15], ['Burpees', 10], ['Prancha', null, 40])],
+  },
+  {
+    id: 'circuito-core',
+    nome: 'Circuito de core',
+    descricao: 'Condicionamento: abdominais e lombar, 3 voltas',
+    blocos: [
+      circuito(3, ['Prancha', null, 45], ['Elevação de pernas suspenso', 12], ['Abdominais', 15], ['Flexões', 12]),
+    ],
+  },
 ]
 
 // Os exercícios de um modelo, sem repetir, pela ordem: [{ nome, principais, secundarios, pesoCorporal }]
@@ -160,9 +193,20 @@ export function estruturaDoModelo(modelo, associacoes) {
       tipo: b.tipo,
       voltas: b.voltas,
       notas: null,
-      bloco_exercicios: b.exercicios.map(([nome, reps], j) => {
+      duracao_seg: b.duracao_seg ?? null,
+      intervalo_seg: b.intervalo_seg ?? null,
+      bloco_exercicios: b.exercicios.map(([nome, reps, segundos = null], j) => {
         const exercicio = associacoes.get(nome)
-        return { id: --id, ordem: j + 1, exercicio_id: exercicio?.id, reps_alvo: reps, peso_alvo: null, exercicios: exercicio, nome_modelo: nome }
+        return {
+          id: --id,
+          ordem: j + 1,
+          exercicio_id: exercicio?.id,
+          reps_alvo: reps ?? 10,
+          peso_alvo: null,
+          segundos_alvo: segundos,
+          exercicios: exercicio,
+          nome_modelo: nome,
+        }
       }),
     })),
   }

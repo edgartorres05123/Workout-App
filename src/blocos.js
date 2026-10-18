@@ -3,18 +3,48 @@
 //   blocos: [{ id, ordem, tipo, voltas, notas, bloco_exercicios: [{ id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios }] }]
 //   series: [{ id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios }]
 // A coluna series.aquecimento é mantida pela base de dados (trigger) igual ao tipo do bloco.
+// Os blocos de condicionamento (circuito, amrap, emom) têm ainda duracao_seg, intervalo_seg e tempo_seg,
+// e os exercícios podem ser por tempo (segundos_alvo); ver condicionamento.js.
+import {
+  DURACAO_AMRAP_INICIAL,
+  INTERVALO_EMOM_INICIAL,
+  exercicioPorTempo,
+  formatarTempo,
+  resultadoAmrap,
+  resultadoEmom,
+  textoResultadoAmrap,
+  textoSegundos,
+} from './condicionamento'
 import { calcularVolume, lerNumero, pesoParaInput } from './formatar'
 
+// Os tipos de bloco, por grupo ('forca' ou 'condicionamento'). O tipo 'cardio' existe na base de dados
+// mas ainda não é mostrado.
 export const TIPOS_BLOCO = [
-  { id: 'aquecimento', nome: 'Aquecimento', descricao: 'Um ou mais exercícios para aquecer. Não contam para o volume nem para os recordes.' },
-  { id: 'serie', nome: 'Série', descricao: 'Um exercício repetido várias voltas.' },
-  { id: 'superserie', nome: 'Super série', descricao: 'Dois ou mais exercícios feitos seguidos, repetidos várias voltas.' },
+  { id: 'aquecimento', grupo: 'forca', nome: 'Aquecimento', descricao: 'Um ou mais exercícios para aquecer. Não contam para o volume nem para os recordes.' },
+  { id: 'serie', grupo: 'forca', nome: 'Série', descricao: 'Um exercício repetido várias voltas.' },
+  { id: 'superserie', grupo: 'forca', nome: 'Super série', descricao: 'Dois ou mais exercícios feitos seguidos, repetidos várias voltas.' },
+  { id: 'circuito', grupo: 'condicionamento', nome: 'Circuito', descricao: 'Vários exercícios seguidos, N voltas. Opcional: por tempo, com cronómetro.' },
+  { id: 'amrap', grupo: 'condicionamento', nome: 'AMRAP', descricao: 'O máximo de voltas possível num tempo limite.' },
+  { id: 'emom', grupo: 'condicionamento', nome: 'EMOM', descricao: 'No início de cada minuto (ou intervalo), um exercício; o resto do tempo é descanso.' },
+]
+export const GRUPOS_BLOCO = [
+  { id: 'forca', nome: 'Força' },
+  { id: 'condicionamento', nome: 'Condicionamento' },
 ]
 export const NOME_TIPO = Object.fromEntries(TIPOS_BLOCO.map((t) => [t.id, t.nome]))
 
-// Voltas e reps-alvo com que um bloco novo começa
-export const VOLTAS_INICIAIS = { aquecimento: 2, serie: 3, superserie: 3 }
+// Voltas e reps-alvo com que um bloco novo começa (no AMRAP, as voltas são o resultado; no EMOM, os intervalos)
+export const VOLTAS_INICIAIS = { aquecimento: 2, serie: 3, superserie: 3, circuito: 3, amrap: 1, emom: 10 }
 export const REPS_ALVO_INICIAIS = 10
+
+// Os campos com que um bloco novo deste tipo começa: { voltas, duracao_seg, intervalo_seg }
+export function camposIniciais(tipo) {
+  return {
+    voltas: VOLTAS_INICIAIS[tipo] ?? 3,
+    duracao_seg: tipo === 'amrap' ? DURACAO_AMRAP_INICIAL : null,
+    intervalo_seg: tipo === 'emom' ? INTERVALO_EMOM_INICIAL : null,
+  }
+}
 
 const porOrdem = (a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) || Number(a.id) - Number(b.id)
 
@@ -37,11 +67,32 @@ export function numerarBlocos(blocos) {
   return blocos.map((b) => (b.tipo === 'aquecimento' ? null : ++contador))
 }
 
-// "Bloco 2 · Super série · 3×" ou "Aquecimento · 2×"
-export function tituloBloco(bloco, numero) {
-  const voltas = `${bloco.voltas}×`
-  if (bloco.tipo === 'aquecimento' || numero === null) return `${NOME_TIPO[bloco.tipo] ?? 'Bloco'} · ${voltas}`
-  return `Bloco ${numero} · ${NOME_TIPO[bloco.tipo]} · ${voltas}`
+// O nome do tipo com a configuração: "Super série · 3×", "Circuito · 3× · 12:34" (tempo feito),
+// "AMRAP 12 min · 7 voltas + 5 reps", "EMOM 12 min · 10/12 intervalos". series: as do bloco (para os
+// resultados do AMRAP e do EMOM); sem elas, só a configuração.
+function descricaoBloco(bloco, series) {
+  const feitas = series?.length > 0
+  if (bloco.tipo === 'amrap') {
+    const resultado = feitas ? resultadoAmrap(bloco, series) : null
+    const base = `AMRAP ${textoSegundos(bloco.duracao_seg ?? DURACAO_AMRAP_INICIAL)}`
+    return resultado ? `${base} · ${textoResultadoAmrap(resultado)}` : base
+  }
+  if (bloco.tipo === 'emom') {
+    const intervalo = bloco.intervalo_seg ?? INTERVALO_EMOM_INICIAL
+    const base = intervalo === 60 ? `EMOM ${bloco.voltas} min` : `EMOM ${bloco.voltas} × ${textoSegundos(intervalo)}`
+    if (!feitas) return base
+    const { feitos, total } = resultadoEmom(bloco, series)
+    return `${base} · ${feitos}/${total} intervalos`
+  }
+  const base = `${NOME_TIPO[bloco.tipo] ?? 'Bloco'} · ${bloco.voltas}×`
+  return bloco.tipo === 'circuito' && bloco.tempo_seg ? `${base} · ${formatarTempo(bloco.tempo_seg)}` : base
+}
+
+// "Bloco 2 · Super série · 3×" ou "Aquecimento · 2×" (ver descricaoBloco)
+export function tituloBloco(bloco, numero, series = null) {
+  const descricao = descricaoBloco(bloco, series)
+  if (bloco.tipo === 'aquecimento' || numero === null) return descricao
+  return `Bloco ${numero} · ${descricao}`
 }
 
 // Letra de cada exercício dentro do bloco (A, B, C…)
@@ -66,7 +117,7 @@ export function tipoAposMudarExercicios(tipo, numExercicios) {
 }
 
 // Quantos exercícios o tipo precisa, no mínimo, para o bloco poder ser criado
-export const MINIMO_EXERCICIOS = { aquecimento: 1, serie: 1, superserie: 2 }
+export const MINIMO_EXERCICIOS = { aquecimento: 1, serie: 1, superserie: 2, circuito: 1, amrap: 1, emom: 1 }
 
 // ---------- Voltas ----------
 
@@ -84,31 +135,42 @@ export function estadoVoltas(bloco, seriesDoBloco) {
 // Valores sugeridos para um exercício numa volta ainda por fazer: { reps, kg } (texto para os campos).
 // Reps: o alvo. Peso: o da volta anterior deste exercício neste bloco (reflete o que estou a fazer hoje),
 // senão o peso-alvo, senão o da última vez que fiz este exercício.
+// Nos exercícios por tempo há também { segundos }: os da volta anterior, senão os segundos-alvo.
 export function sugestaoVolta(blocoExercicio, volta, seriesDoBloco, ultimaVez = null) {
   const anterior = seriesDoBloco
     .filter((s) => s.exercicio_id === blocoExercicio.exercicio_id && s.volta < volta)
     .sort((a, b) => b.volta - a.volta)[0]
   const peso = anterior?.peso_kg ?? blocoExercicio.peso_alvo ?? ultimaVez?.peso_kg ?? null
-  return {
+  const sugestao = {
     reps: blocoExercicio.reps_alvo ? String(blocoExercicio.reps_alvo) : '',
     kg: peso === null || peso === undefined ? '' : pesoParaInput(peso),
   }
+  if (exercicioPorTempo(blocoExercicio)) {
+    sugestao.segundos = String(anterior?.duracao_seg || blocoExercicio.segundos_alvo)
+  }
+  return sugestao
 }
 
-// Valida os campos de uma volta: linhas = [{ exercicio_id, reps, kg, pesoCorporal?, pesoCorporalKg? }]
-// (reps e kg em texto). As reps vazias saltam o exercício; o peso vazio conta como 0 kg.
+// Valida os campos de uma volta: linhas = [{ exercicio_id, reps, kg, pesoCorporal?, pesoCorporalKg?,
+// porTempo?, segundos? }] (reps, segundos e kg em texto). As reps vazias saltam o exercício; o peso vazio
+// conta como 0 kg. Nos exercícios por tempo (porTempo: true) contam os segundos: a série fica com
+// repeticoes = 0 e duracao_seg = segundos.
 // Nos exercícios de peso corporal (pesoCorporal: true), kg é o PESO EXTRA e pode ser negativo
 // (assistido); com o peso do corpo conhecido (pesoCorporalKg), corpo + extra tem de ser maior que 0.
-// Devolve { series: [{ exercicio_id, repeticoes, peso_kg }] } ou { erro }.
+// Devolve { series: [{ exercicio_id, repeticoes, peso_kg, duracao_seg? }] } ou { erro }.
 export function validarVolta(linhas) {
   const series = []
   for (const linha of linhas) {
-    const reps = String(linha.reps ?? '').trim()
-    if (reps === '') continue
-    const repeticoes = Number(reps)
-    if (!Number.isInteger(repeticoes) || repeticoes <= 0 || repeticoes > 1000) {
+    const texto = String((linha.porTempo ? linha.segundos : linha.reps) ?? '').trim()
+    if (texto === '') continue
+    const numero = Number(texto)
+    if (linha.porTempo && (!Number.isInteger(numero) || numero <= 0 || numero > 36000)) {
+      return { erro: 'Os segundos têm de ser um número inteiro maior do que 0.' }
+    }
+    if (!linha.porTempo && (!Number.isInteger(numero) || numero <= 0 || numero > 1000)) {
       return { erro: 'As reps têm de ser um número inteiro maior do que 0.' }
     }
+    const repeticoes = linha.porTempo ? 0 : numero
     const textoKg = String(linha.kg ?? '').trim()
     const peso = textoKg === '' ? 0 : lerNumero(textoKg)
     const minimo = linha.pesoCorporal ? -9999.99 : 0
@@ -123,9 +185,11 @@ export function validarVolta(linhas) {
     if (linha.pesoCorporal && corpo !== null && corpo !== undefined && Number(corpo) + peso <= 0) {
       return { erro: 'O peso efetivo (corpo + extra) tem de ser maior do que 0.' }
     }
-    series.push({ exercicio_id: linha.exercicio_id, repeticoes, peso_kg: Math.round(peso * 100) / 100 })
+    const serie = { exercicio_id: linha.exercicio_id, repeticoes, peso_kg: Math.round(peso * 100) / 100 }
+    if (linha.porTempo) serie.duracao_seg = numero
+    series.push(serie)
   }
-  if (series.length === 0) return { erro: 'Preenche as reps de pelo menos um exercício.' }
+  if (series.length === 0) return { erro: 'Preenche as reps (ou os segundos) de pelo menos um exercício.' }
   return { series }
 }
 
@@ -158,20 +222,25 @@ export function proximaOrdem(lista) {
 // ---------- Copiar a estrutura de um treino anterior ----------
 
 // Os blocos, os exercícios, as voltas e os alvos de um treino, sem as séries feitas:
-// [{ ordem, tipo, voltas, notas, exercicios: [{ ordem, exercicio_id, reps_alvo, peso_alvo }] }]
+// [{ ordem, tipo, voltas, notas, duracao_seg, intervalo_seg,
+//    exercicios: [{ ordem, exercicio_id, reps_alvo, peso_alvo, segundos_alvo }] }]
+// O tempo_seg (resultado de um circuito) não se copia; no AMRAP as voltas são o resultado: voltam a 1.
 export function estruturaParaCopiar(treino) {
   return normalizarTreino(treino).blocos
     .filter((b) => b.bloco_exercicios.length > 0)
     .map((b, i) => ({
       ordem: i + 1,
       tipo: b.tipo,
-      voltas: b.voltas,
+      voltas: b.tipo === 'amrap' ? 1 : b.voltas,
       notas: b.notas ?? null,
+      duracao_seg: b.duracao_seg ?? null,
+      intervalo_seg: b.intervalo_seg ?? null,
       exercicios: b.bloco_exercicios.map((be, j) => ({
         ordem: j + 1,
         exercicio_id: be.exercicio_id,
         reps_alvo: be.reps_alvo,
         peso_alvo: be.peso_alvo ?? null,
+        segundos_alvo: be.segundos_alvo ?? null,
       })),
     }))
 }

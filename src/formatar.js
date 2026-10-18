@@ -134,10 +134,11 @@ export function calcular1RM(repeticoes, pesoKg) {
 }
 
 // A série (sem aquecimento) com maior 1RM estimado, ou null. carga(serie) como em calcularVolume.
+// As séries por tempo (repeticoes = 0) não têm 1RM e ficam de fora.
 export function melhorSerie(series, carga = pesoDaSerie) {
   let melhor = null
   for (const s of series) {
-    if (s.aquecimento) continue
+    if (s.aquecimento || !(s.repeticoes > 0)) continue
     if (!melhor || calcular1RM(s.repeticoes, carga(s)) > calcular1RM(melhor.repeticoes, carga(melhor))) {
       melhor = s
     }

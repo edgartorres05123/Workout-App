@@ -38,6 +38,9 @@ export function inicioPeriodo(periodo, agora) {
 // ---------- Métricas de um treino ----------
 
 const seriesNormais = (series) => series.filter((s) => !s.aquecimento)
+// Sem aquecimento e com reps: as séries por tempo (repeticoes = 0) não entram nos recordes de peso e
+// de reps nem no 1RM (mas entram no volume, com 0, e nos músculos da semana)
+const seriesComReps = (series) => seriesNormais(series).filter((s) => s.repeticoes > 0)
 
 // metrica: 'treinos' | 'volume' | 'duracao' (minutos) | 'series' (sem aquecimento)
 export function metricaTreino(treino, metrica, carga = cargaSimples) {
@@ -179,7 +182,7 @@ export function recordesGerais(treinos, carga = cargaSimples) {
       maisLongo = { treino, valor: treino.duracao_min ?? 0 }
     }
 
-    for (const serie of seriesNormais(treino.series)) {
+    for (const serie of seriesComReps(treino.series)) {
       const peso = carga(serie, treino.data)
       if (
         !maiorPeso ||
@@ -240,7 +243,7 @@ export function evolucaoExercicio(series, metrica, carga = cargaSimples) {
   let maximo = -Infinity
 
   for (const { treino, series: daSessao } of sessoesPorTreino(series).reverse()) {
-    const normais = seriesNormais(daSessao)
+    const normais = seriesComReps(daSessao)
     if (normais.length === 0) continue
     const pesoDe = (s) => carga(s, treino.data)
 
@@ -317,9 +320,9 @@ export function estatisticasPorExercicio(treinos) {
 }
 
 // series: séries de UM exercício, com o treino aninhado (s.treinos = { id, data }).
-// Devolve null se não houver séries normais. recordeCarga é a carga efetiva do recorde de peso.
+// Devolve null se não houver séries normais com reps. recordeCarga é a carga efetiva do recorde de peso.
 export function resumoExercicio(series, carga = cargaSimples) {
-  const normais = series.filter((s) => !s.aquecimento)
+  const normais = seriesComReps(series)
   if (normais.length === 0) return null
   const pesoDe = (s) => carga(s, s.treinos.data)
 
@@ -355,6 +358,20 @@ export function resumoExercicio(series, carga = cargaSimples) {
     maisReps,
     melhor,
     melhor1RM: calcular1RM(melhor.repeticoes, pesoDe(melhor)),
+  }
+}
+
+// As séries por tempo de UM exercício (sem aquecimento): { numTreinos, melhor (a série mais longa),
+// primeira, ultima } ou null se não houver nenhuma
+export function resumoTempo(series) {
+  const porTempo = seriesNormais(series).filter((s) => Number(s.duracao_seg) > 0)
+  if (porTempo.length === 0) return null
+  const datas = porTempo.map((s) => new Date(s.treinos.data))
+  return {
+    numTreinos: new Set(porTempo.map((s) => s.treino_id)).size,
+    melhor: porTempo.reduce((melhor, s) => (s.duracao_seg > melhor.duracao_seg ? s : melhor)),
+    primeira: new Date(Math.min(...datas)).toISOString(),
+    ultima: new Date(Math.max(...datas)).toISOString(),
   }
 }
 

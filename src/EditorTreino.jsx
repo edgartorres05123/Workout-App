@@ -14,7 +14,7 @@ import OpcoesBloco from './OpcoesBloco'
 import SemanaNoTreino from './SemanaNoTreino'
 import {
   REPS_ALVO_INICIAIS,
-  VOLTAS_INICIAIS,
+  camposIniciais,
   normalizarTreino,
   numerarBlocos,
   progressoVoltas,
@@ -36,8 +36,10 @@ import {
 } from './formatar'
 
 const CAMPOS_SERIE =
-  'id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome, peso_corporal)'
-const CAMPOS_BLOCO_EXERCICIO = 'id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios(id, nome, peso_corporal)'
+  'id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, duracao_seg, aquecimento, exercicios(id, nome, peso_corporal)'
+const CAMPOS_BLOCO_EXERCICIO =
+  'id, ordem, exercicio_id, reps_alvo, peso_alvo, segundos_alvo, exercicios(id, nome, peso_corporal)'
+const CAMPOS_BLOCO = 'id, ordem, tipo, voltas, notas, duracao_seg, intervalo_seg, tempo_seg'
 
 // Editor de um treino organizado em blocos, usado em 3 modos:
 //   'aoVivo'  — o treino em curso, com cronómetro (Terminar / Descartar)
@@ -95,19 +97,26 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
 
   // ---------- Blocos ----------
 
-  // repsAlvo: o alvo de cada exercício (por omissão, o inicial)
-  async function criarBloco(tipo, exercicios, repsAlvo = REPS_ALVO_INICIAIS) {
+  // exercicios: [{ id, segundos_alvo? }] (com segundos_alvo, o exercício é por tempo);
+  // repsAlvo: o alvo de cada exercício (por omissão, o inicial); config: { voltas, duracao_seg, intervalo_seg }
+  async function criarBloco(tipo, exercicios, repsAlvo = REPS_ALVO_INICIAIS, config = {}) {
     const { data: bloco, error } = await supabase
       .from('blocos')
-      .insert({ treino_id: treino.id, ordem: proximaOrdem(treino.blocos), tipo, voltas: VOLTAS_INICIAIS[tipo] })
-      .select('id, ordem, tipo, voltas, notas')
+      .insert({ treino_id: treino.id, ordem: proximaOrdem(treino.blocos), tipo, ...camposIniciais(tipo), ...config })
+      .select(CAMPOS_BLOCO)
       .single()
     if (error) return error.message
 
     const { data: doBloco, error: erroExercicios } = await supabase
       .from('bloco_exercicios')
       .insert(
-        exercicios.map((e, i) => ({ bloco_id: bloco.id, exercicio_id: e.id, ordem: i + 1, reps_alvo: repsAlvo }))
+        exercicios.map((e, i) => ({
+          bloco_id: bloco.id,
+          exercicio_id: e.id,
+          ordem: i + 1,
+          reps_alvo: repsAlvo,
+          segundos_alvo: e.segundos_alvo ?? null,
+        }))
       )
       .select(CAMPOS_BLOCO_EXERCICIO)
     onAlterar((t) => ({ ...t, blocos: [...t.blocos, { ...bloco, bloco_exercicios: doBloco ?? [] }] }))
@@ -284,6 +293,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
           ordem: base + i,
           repeticoes: s.repeticoes,
           peso_kg: s.peso_kg,
+          duracao_seg: s.duracao_seg ?? null,
         }))
       )
       .select(CAMPOS_SERIE)
@@ -299,7 +309,23 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     return null
   }
 
-  // Corrige uma série de uma volta feita: dados = { repeticoes, peso_kg }, ou null para a apagar
+  // AMRAP: substitui as séries do bloco pelas geradas a partir de "voltas + reps extra" e guarda as voltas
+  // registadas. lista: [{ exercicio_id, volta, repeticoes, peso_kg, duracao_seg }]
+  async function registarAmrap(bloco, lista, voltas) {
+    const { error: erroApagar } = await supabase.from('series').delete().eq('bloco_id', bloco.id)
+    if (erroApagar) return erroApagar.message
+    onAlterar((t) => ({ ...t, series: t.series.filter((s) => s.bloco_id !== bloco.id) }))
+    const base = proximaOrdemSerie(treino.series.filter((s) => s.bloco_id !== bloco.id))
+    const { data, error } = await supabase
+      .from('series')
+      .insert(lista.map((s, i) => ({ treino_id: treino.id, bloco_id: bloco.id, ordem: base + i, ...s })))
+      .select(CAMPOS_SERIE)
+    if (error) return error.message
+    onAlterar((t) => ({ ...t, series: [...t.series, ...data] }))
+    return voltas !== bloco.voltas ? atualizarBloco(bloco.id, { voltas }) : null
+  }
+
+  // Corrige uma série de uma volta feita: dados = { repeticoes, peso_kg, duracao_seg }, ou null para a apagar
   async function guardarSerie(bloco, volta, exercicioId, dados) {
     const existente = treino.series.find(
       (s) => s.bloco_id === bloco.id && s.volta === volta && s.exercicio_id === exercicioId
@@ -358,7 +384,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
         <CartaoBloco
           key={bloco.id}
           bloco={bloco}
-          titulo={tituloBloco(bloco, numeros[i])}
+          titulo={tituloBloco(bloco, numeros[i], seriesDoBloco(bloco.id))}
           series={seriesDoBloco(bloco.id)}
           dataTreino={treino.data}
           pesoCorporalKg={pesoCorporalKg}
@@ -367,6 +393,8 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
           onGravarVolta={(volta, lista) => gravarVolta(bloco, volta, lista)}
           onDesfazerVolta={(volta) => desfazerVolta(bloco, volta)}
           onGuardarSerie={(volta, exercicioId, dados) => guardarSerie(bloco, volta, exercicioId, dados)}
+          onAtualizar={(campos) => atualizarBloco(bloco.id, campos)}
+          onRegistarAmrap={(lista, voltas) => registarAmrap(bloco, lista, voltas)}
         />
       ))}
 
@@ -434,14 +462,20 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
       )}
 
       {aCriarBloco && (
-        <NovoBloco onCriar={criarBloco} onMudarPesoCorporal={mudarPesoCorporal} onFechar={() => setACriarBloco(false)} />
+        <NovoBloco
+          onCriar={(tipo, exercicios, config) => criarBloco(tipo, exercicios, REPS_ALVO_INICIAIS, config)}
+          onMudarPesoCorporal={mudarPesoCorporal} onFechar={() => setACriarBloco(false)} />
       )}
 
       {blocoComOpcoes && (
         <OpcoesBloco
           key={blocoComOpcoes.id}
           bloco={blocoComOpcoes}
-          titulo={tituloBloco(blocoComOpcoes, numeros[treino.blocos.indexOf(blocoComOpcoes)])}
+          titulo={tituloBloco(
+            blocoComOpcoes,
+            numeros[treino.blocos.indexOf(blocoComOpcoes)],
+            seriesDoBloco(blocoComOpcoes.id)
+          )}
           series={seriesDoBloco(blocoComOpcoes.id)}
           primeiro={treino.blocos[0] === blocoComOpcoes}
           ultimo={treino.blocos.at(-1) === blocoComOpcoes}

@@ -32,6 +32,11 @@
   --azul-fundo: rgba(116, 192, 252, 0.15);
   --amarelo: #ffd43b;
   --amarelo-fundo: rgba(255, 212, 59, 0.15);
+  --amarelo-borda: rgba(255, 212, 59, 0.4);
+  --azul-borda: rgba(116, 192, 252, 0.4);
+  --rosa: #f783ac;
+  --rosa-fundo: rgba(247, 131, 172, 0.15);
+  --rosa-borda: rgba(247, 131, 172, 0.4);
   --erro: #ff6b6b;
   --erro-fundo: rgba(255, 107, 107, 0.14);
   --veu: rgba(0, 0, 0, 0.62);
@@ -2460,3 +2465,185 @@ button,
 .lista-novos li { margin-bottom: 6px; }
 .lista-novos .etiqueta { margin-left: 6px; }
 .lista-novos-musculos { display: block; font-size: var(--t-pequeno); color: var(--texto-suave); }
+
+/* ---------- Blocos de condicionamento (circuito, AMRAP, EMOM) ---------- */
+
+.bloco-circuito,
+.tipo-circuito { --cor-tipo: var(--azul); --cor-tipo-fundo: var(--azul-fundo); --cor-tipo-borda: var(--azul-borda); }
+.bloco-amrap,
+.tipo-amrap { --cor-tipo: var(--rosa); --cor-tipo-fundo: var(--rosa-fundo); --cor-tipo-borda: var(--rosa-borda); }
+.bloco-emom,
+.tipo-emom { --cor-tipo: var(--amarelo); --cor-tipo-fundo: var(--amarelo-fundo); --cor-tipo-borda: var(--amarelo-borda); }
+
+/* Tipos agrupados (Força / Condicionamento) */
+.grupo-tipos + .grupo-tipos { margin-top: var(--e-2); }
+.grupo-tipos .opcoes-titulo { margin-top: 0; }
+.grupo-tipos-compacto + .grupo-tipos-compacto { margin-top: var(--e-2); }
+
+.grupo-tipos-nome {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--t-etiqueta);
+  font-weight: var(--p-forte);
+  color: var(--texto-suave);
+}
+
+.config-bloco { margin: var(--e-2) 0 var(--e-3); }
+.alternar-tempo { display: flex; gap: 6px; margin-top: var(--e-2); }
+.alternar-tempo .filtro { padding: 6px 12px; font-size: var(--t-pequeno); }
+.nota-emom { margin-bottom: var(--e-3); }
+
+.condicionamento { margin: var(--e-2) 0 var(--e-3); }
+.botao-por-tempo { margin: 0 0 var(--e-3); }
+
+.resultado-bloco {
+  margin: var(--e-3) 0 0;
+  font-size: var(--t-secundario);
+  color: var(--texto-suave);
+}
+
+.resultado-bloco strong { color: var(--cor-tipo); font-size: var(--t-cartao); font-variant-numeric: tabular-nums; }
+.resultado-bloco .botao-link { min-height: 0; }
+
+.resultado-amrap { margin-top: var(--e-3); }
+.resultado-amrap .alvos { margin-top: 0; }
+.resultado-amrap .linha-botoes { margin-top: var(--e-3); }
+.resultado-amrap .linha-botoes button { flex: 1; margin-top: 0; }
+
+.pesos-amrap li { display: flex; align-items: center; gap: var(--e-2); padding: var(--e-2) 0; }
+.pesos-amrap-nome { display: flex; flex: 1; flex-direction: column; min-width: 0; font-weight: var(--p-forte); }
+.pesos-amrap-alvo { font-size: var(--t-pequeno); font-weight: var(--p-normal); color: var(--texto-suave); }
+
+.pesos-amrap input {
+  width: 76px;
+  min-height: var(--toque);
+  margin: 0;
+  padding: 8px;
+  text-align: center;
+}
+
+/* EMOM: ✗ (falhado) ao lado do ✓ */
+.volta.com-falha { grid-template-columns: 22px 1fr 44px 52px; }
+
+.botao-falha {
+  width: 44px;
+  height: 52px;
+  padding: 0;
+  border: 2px solid var(--borda-forte);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--texto-fraco);
+}
+
+.botao-falha.ativo { border-color: var(--erro); background: var(--erro-fundo); color: var(--erro); }
+
+.volta-falhada {
+  display: flex;
+  align-items: center;
+  gap: var(--e-1);
+  min-height: 48px;
+  margin: 0;
+  color: var(--erro);
+  font-weight: var(--p-forte);
+}
+
+.volta.falhada .volta-numero { color: var(--erro); }
+
+/* ---------- Cronómetro ---------- */
+
+.cronometro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e-2);
+  padding: var(--e-4) var(--e-3);
+  border: 1px solid var(--cor-tipo-borda, var(--borda));
+  border-radius: var(--raio-cartao);
+  background: var(--campo);
+  text-align: center;
+}
+
+.cronometro-lugar { min-height: 120px; border-style: dashed; }
+
+.cronometro-tempo {
+  margin: 0;
+  font-size: clamp(52px, 17vw, 76px);
+  font-weight: var(--p-numero);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--texto);
+}
+
+.cronometro.a-correr .cronometro-tempo { color: var(--cor-tipo, var(--verde)); }
+.cronometro-tempo.ultimos { color: var(--erro); animation: pulsar 1s ease-in-out infinite; }
+.cronometro.terminado .cronometro-tempo { color: var(--texto-suave); }
+
+@keyframes pulsar {
+  50% { opacity: 0.55; }
+}
+
+.cronometro-intervalo,
+.cronometro-nota { margin: 0; font-size: var(--t-secundario); color: var(--texto-suave); }
+.cronometro-intervalo strong { color: var(--texto); font-variant-numeric: tabular-nums; }
+
+.cronometro-exercicio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--t-cartao);
+  font-weight: var(--p-titulo);
+}
+
+.cronometro-exercicio-alvo { font-size: var(--t-secundario); font-weight: var(--p-normal); color: var(--texto-suave); }
+
+.cronometro-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e-2);
+  margin-top: var(--e-1);
+}
+
+.cronometro-principal {
+  width: auto;
+  min-width: 120px;
+  margin: 0;
+  padding: 10px var(--e-4);
+  background: var(--cor-tipo, var(--verde));
+  color: var(--sobre-verde);
+}
+
+.cronometro-principal.secundario {
+  border: 1.5px solid var(--cor-tipo-borda, var(--borda-forte));
+  background: transparent;
+  color: var(--cor-tipo, var(--texto));
+}
+
+/* Ecrã cheio: por cima de tudo, com os números ainda maiores (legíveis à distância) */
+.cronometro.ecra-cheio {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  justify-content: center;
+  gap: var(--e-4);
+  padding: max(var(--e-5), env(safe-area-inset-top)) var(--e-4) max(var(--e-5), env(safe-area-inset-bottom));
+  border: none;
+  border-radius: 0;
+  background: var(--fundo);
+}
+
+.cronometro.ecra-cheio .cronometro-tempo { font-size: clamp(88px, 30vw, 220px); }
+.cronometro.ecra-cheio .cronometro-intervalo,
+.cronometro.ecra-cheio .cronometro-nota { font-size: var(--t-cartao); }
+.cronometro.ecra-cheio .cronometro-exercicio { font-size: var(--t-ecra); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cronometro-tempo.ultimos { animation: none; }
+}
+
+.tipos-bloco.compacto { flex-wrap: wrap; }

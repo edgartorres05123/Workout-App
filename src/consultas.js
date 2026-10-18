@@ -1,14 +1,15 @@
 import { supabase } from './supabase'
 
-// Os blocos de um treino, com os exercícios e os alvos
+// Os blocos de um treino, com os exercícios e os alvos (e a configuração dos blocos de condicionamento)
 const SELECT_BLOCOS =
-  'blocos(id, ordem, tipo, voltas, notas, bloco_exercicios(id, ordem, exercicio_id, reps_alvo, peso_alvo, exercicios(id, nome, peso_corporal)))'
+  'blocos(id, ordem, tipo, voltas, notas, duracao_seg, intervalo_seg, tempo_seg, ' +
+  'bloco_exercicios(id, ordem, exercicio_id, reps_alvo, peso_alvo, segundos_alvo, exercicios(id, nome, peso_corporal)))'
 
 // Um treino com as relações aninhadas: treinos → blocos → bloco_exercicios, e treinos → series.
 // Os exercícios vêm com peso_corporal, para a carga efetiva (ver pesoCorporal.js).
 export const SELECT_TREINO =
   `id, data, duracao_min, notas, favorito, nome_favorito, ${SELECT_BLOCOS}, ` +
-  'series(id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(id, nome, peso_corporal))'
+  'series(id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, duracao_seg, aquecimento, exercicios(id, nome, peso_corporal))'
 
 // Um exercício com os seus músculos (e se é de peso corporal)
 export const SELECT_EXERCICIO = 'id, nome, peso_corporal, exercicio_musculos(musculo, principal)'
@@ -37,7 +38,7 @@ export function buscarTreinosTerminados() {
     supabase
       .from('treinos')
       .select(
-        'id, data, duracao_min, series(id, exercicio_id, ordem, repeticoes, peso_kg, aquecimento, exercicios(peso_corporal))'
+        'id, data, duracao_min, series(id, exercicio_id, ordem, repeticoes, peso_kg, duracao_seg, aquecimento, exercicios(peso_corporal))'
       )
       .not('duracao_min', 'is', null)
       .order('id')

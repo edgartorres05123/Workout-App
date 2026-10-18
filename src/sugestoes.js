@@ -61,20 +61,27 @@ export function historicoExercicios(treinos) {
     const doTreino = new Map()
     for (const s of treino.series ?? []) {
       if (s.aquecimento) continue
-      if (!doTreino.has(s.exercicio_id)) doTreino.set(s.exercicio_id, [])
-      doTreino.get(s.exercicio_id).push(s.repeticoes)
+      if (!doTreino.has(s.exercicio_id)) doTreino.set(s.exercicio_id, { reps: [], segundos: [] })
+      // As séries por tempo (repeticoes = 0) contam os segundos, não as reps
+      if (s.repeticoes > 0) doTreino.get(s.exercicio_id).reps.push(s.repeticoes)
+      else if (s.duracao_seg > 0) doTreino.get(s.exercicio_id).segundos.push(s.duracao_seg)
     }
-    for (const [id, reps] of doTreino) {
-      const h = porExercicio.get(id) ?? { numTreinos: 0, ultima: null, todas: [], repsUltima: null }
+    for (const [id, { reps, segundos }] of doTreino) {
+      const h = porExercicio.get(id) ?? { numTreinos: 0, ultima: null, todas: [], tempos: [], repsUltima: null }
       h.numTreinos += 1
       h.ultima = treino.data
       h.todas.push(...reps)
+      h.tempos.push(...segundos)
       h.repsUltima = moda(reps)
       porExercicio.set(id, h)
     }
   }
+  // segundosHabituais: só nos exercícios feitos sobretudo por tempo (senão null)
   return new Map(
-    [...porExercicio].map(([id, { todas, ...h }]) => [id, { ...h, repsHabituais: moda(todas) }])
+    [...porExercicio].map(([id, { todas, tempos, ...h }]) => [
+      id,
+      { ...h, repsHabituais: moda(todas), segundosHabituais: tempos.length > todas.length ? moda(tempos) : null },
+    ])
   )
 }
 
@@ -215,6 +222,8 @@ export function montarEstrutura(itens, historico, { superSeries = false, titulo 
     exercicio_id: item.exercicio.id,
     reps_alvo: reps ?? item.reps ?? historico.get(item.exercicio.id)?.repsHabituais ?? REPS_PADRAO,
     peso_alvo: null,
+    // Os exercícios que costumo fazer por tempo (prancha...) ficam por tempo
+    segundos_alvo: historico.get(item.exercicio.id)?.segundosHabituais ?? null,
     exercicios: item.exercicio,
   })
   const blocos = []

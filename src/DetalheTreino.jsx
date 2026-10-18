@@ -20,6 +20,7 @@ import {
   formatarPeso,
   melhorSerie,
 } from './formatar'
+import { seriePorTempo, textoSegundos } from './condicionamento'
 import { textoCarga } from './pesoCorporal'
 
 // Detalhe de um treino terminado, organizado por blocos. "Editar" abre o EditorTreino (modo
@@ -152,7 +153,7 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
         <BlocoLeitura
           key={bloco.id}
           bloco={bloco}
-          titulo={tituloBloco(bloco, numeros[i])}
+          titulo={tituloBloco(bloco, numeros[i], treino.series.filter((s) => s.bloco_id === bloco.id))}
           series={treino.series.filter((s) => s.bloco_id === bloco.id)}
           carga={cargaDaSerie}
         />
@@ -274,8 +275,13 @@ function BlocoLeitura({ bloco, titulo, series, carga }) {
                       {j === 0 ? v.volta : ''}
                     </span>
                     {varios && <span className="letra">{letraExercicio(i)}</span>}
-                    <span className="serie-valor">{serie.repeticoes} reps</span>
-                    <span className="serie-valor">{textoCarga(serie.peso_kg, serie.exercicios?.peso_corporal)}</span>
+                    <span className="serie-valor">
+                      {seriePorTempo(serie) ? textoSegundos(serie.duracao_seg) : `${serie.repeticoes} reps`}
+                    </span>
+                    {/* Nas séries por tempo sem peso (e sem PC), não há peso a mostrar */}
+                    {!(seriePorTempo(serie) && Number(serie.peso_kg) === 0 && !serie.exercicios?.peso_corporal) && (
+                      <span className="serie-valor">{textoCarga(serie.peso_kg, serie.exercicios?.peso_corporal)}</span>
+                    )}
                     {destaque && <span className="etiqueta-melhor">Melhor</span>}
                   </li>
                 )

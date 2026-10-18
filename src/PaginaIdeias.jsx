@@ -10,6 +10,7 @@ import Esqueleto from './Esqueleto'
 import IconeBloco from './IconeBloco'
 import Pilulas from './Pilulas'
 import { letraExercicio, numerarBlocos, tituloBloco } from './blocos'
+import { textoSegundos } from './condicionamento'
 import { formatarPeso } from './formatar'
 import { MODELOS, associarModelo, estruturaDoModelo, exerciciosDoModelo, exerciciosNovos, musculosParaCriar } from './modelos'
 import { MUSCULOS, nomeMusculo } from './musculos'
@@ -475,7 +476,9 @@ function PreVisualizacao({ estrutura, acoes }) {
                     {be.exercicios?.peso_corporal && <span className="etiqueta etiqueta-pc">PC</span>}
                     {be.exercicios?.novo && <span className="etiqueta etiqueta-aviso">novo</span>}
                   </span>
-                  <span className="exercicio-previsto-alvo">{be.reps_alvo} reps</span>
+                  <span className="exercicio-previsto-alvo">
+                    {be.segundos_alvo ? textoSegundos(be.segundos_alvo) : `${be.reps_alvo} reps`}
+                  </span>
                 </span>
                 {acoes(be, bloco)}
               </li>

@@ -13,7 +13,17 @@ async function copiarEstrutura(treinoId, estrutura) {
   if (estrutura.length === 0) return null
   const { data: blocos, error } = await supabase
     .from('blocos')
-    .insert(estrutura.map(({ ordem, tipo, voltas, notas }) => ({ treino_id: treinoId, ordem, tipo, voltas, notas })))
+    .insert(
+      estrutura.map(({ ordem, tipo, voltas, notas, duracao_seg = null, intervalo_seg = null }) => ({
+        treino_id: treinoId,
+        ordem,
+        tipo,
+        voltas,
+        notas,
+        duracao_seg,
+        intervalo_seg,
+      }))
+    )
     .select('id, ordem')
   if (error) return error.message
 
