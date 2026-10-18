@@ -8,7 +8,8 @@ import { dataParaInput, formatarDataExtenso } from './formatar'
 
 // Janela para começar um treino ('aoVivo') ou registar um treino passado ('passado').
 // Dá para começar vazio ou copiar a estrutura (blocos, exercícios e alvos) de um treino anterior;
-// os favoritos aparecem primeiro. origemInicial: um treino já escolhido (vindo dos favoritos).
+// os favoritos aparecem primeiro. origemInicial: um treino já escolhido (vindo dos favoritos, ou uma
+// ideia de treino / um modelo, que aparece no topo da lista).
 // onCriar({ data, duracao_min, estrutura }) devolve uma mensagem de erro, ou null se correu bem.
 export default function NovoTreino({ modo, origemInicial = null, onCriar, onFechar }) {
   const passado = modo === 'passado'
@@ -68,6 +69,9 @@ export default function NovoTreino({ modo, origemInicial = null, onCriar, onFech
     if (mensagem) setErro(mensagem)
   }
 
+  const naLista = (lista) => Boolean(lista?.some((t) => t.id === origemInicial?.id))
+  const origemExtra = Boolean(origemInicial) && !naLista(anteriores?.favoritos) && !naLista(anteriores?.recentes)
+
   return (
     <Janela titulo={passado ? 'Registar treino passado' : 'Começar treino'} onFechar={onFechar}>
         <form className="sheet-lista" onSubmit={criar}>
@@ -103,6 +107,16 @@ export default function NovoTreino({ modo, origemInicial = null, onCriar, onFech
               </span>
               <span className="origem-detalhe">Adicionas os blocos à medida que treinas.</span>
             </button>
+
+            {/* Uma ideia de treino ou um modelo (não está nos favoritos nem nos recentes) */}
+            {origemExtra && (
+              <BotaoOrigem
+                treino={origemInicial}
+                titulo={origemInicial.nome_favorito || 'Treino escolhido'}
+                origem={origem}
+                onEscolher={setOrigem}
+              />
+            )}
 
             {anteriores === null && <Esqueleto cartoes={3} linhas={2} />}
 

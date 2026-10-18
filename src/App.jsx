@@ -1,15 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, ChartColumn, Download, House, ListChecks, LogOut, Star, User, WifiOff } from 'lucide-react'
+import { CalendarDays, ChartColumn, Download, House, Lightbulb, ListChecks, LogOut, Star, Target, User, WifiOff } from 'lucide-react'
 import { version as versaoApp } from '../package.json'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
 import Cabecalho from './Cabecalho'
 import { buscarPesosCorporais } from './consultas'
 import { ContextoPesoCorporal } from './contextoPesoCorporal'
+import { ContextoSemana } from './contextoSemana'
 import Confirmar from './Confirmar'
 import Esqueleto from './Esqueleto'
 import Login from './Login'
 import ProvedorAvisos from './ProvedorAvisos'
+import { lerObjetivos, objetivosParaGravar } from './semana'
 import Treino from './Treino'
 
 // Só o separador Início (com o editor de treino) vai no ficheiro principal, para abrir depressa no
@@ -20,6 +22,8 @@ const Exercicios = lazy(() => import('./Exercicios'))
 const PaginaEstatisticas = lazy(() => import('./PaginaEstatisticas'))
 const Perfil = lazy(() => import('./Perfil'))
 const PaginaFavoritos = lazy(() => import('./PaginaFavoritos'))
+const PaginaIdeias = lazy(() => import('./PaginaIdeias'))
+const ObjetivosSemanais = lazy(() => import('./ObjetivosSemanais'))
 // O menu só é descarregado quando se toca no ☰ pela primeira vez
 const MenuLateral = lazy(() => import('./MenuLateral'))
 
@@ -57,6 +61,7 @@ export default function App() {
           email={session.user.email}
           nome={session.user.user_metadata?.nome ?? null}
           utilizadorId={session.user.id}
+          objetivosGuardados={session.user.user_metadata?.objetivos_musculos ?? null}
         />
       )}
     </ProvedorAvisos>
@@ -97,12 +102,15 @@ const SEPARADORES = [
 ]
 const TITULOS = Object.fromEntries(SEPARADORES.map((s) => [s.id, s.nome]))
 
-function Principal({ email, nome, utilizadorId }) {
+// objetivosGuardados: os objetivos semanais por músculo no user_metadata (só os diferentes do padrão)
+function Principal({ email, nome, utilizadorId, objetivosGuardados }) {
   const [separador, setSeparador] = useState('treino')
   // Opções para o separador aberto (por exemplo, { soSemMusculos: true } nos Exercícios)
   const [opcoes, setOpcoes] = useState({})
-  // Página aberta a partir do menu (por cima dos separadores): null | 'perfil' | 'favoritos'
+  // Página aberta a partir do menu (por cima dos separadores):
+  // null | 'perfil' | 'favoritos' | 'ideias' | 'objetivos'; e as opções dela (por exemplo, { musculos })
   const [pagina, setPagina] = useState(null)
+  const [opcoesPagina, setOpcoesPagina] = useState({})
   const [menuAberto, setMenuAberto] = useState(false)
   const [confirmarSair, setConfirmarSair] = useState(false)
   const [aExportar, setAExportar] = useState(false)
@@ -132,10 +140,33 @@ function Principal({ email, nome, utilizadorId }) {
     window.scrollTo(0, 0)
   }
 
-  const abrirPagina = useCallback((id) => {
+  const abrirPagina = useCallback((id, novasOpcoes = {}) => {
     setPagina(id)
+    setOpcoesPagina(novasOpcoes)
     window.scrollTo(0, 0)
   }, [])
+
+  // Objetivos semanais e atalhos dos ecrãs da semana. Gravar os objetivos muda o user_metadata;
+  // a sessão é atualizada (USER_UPDATED) e os objetivos novos chegam por objetivosGuardados.
+  const semana = useMemo(
+    () => ({
+      objetivos: lerObjetivos(objetivosGuardados),
+      guardarObjetivos: async (objetivos) => {
+        const { error } = await supabase.auth.updateUser({
+          data: { objetivos_musculos: objetivosParaGravar(objetivos) },
+        })
+        return error ? error.message : null
+      },
+      abrirIdeias: (opcoesIdeias = {}) => abrirPagina('ideias', opcoesIdeias),
+      abrirSemMusculos: () => {
+        setPagina(null)
+        setSeparador('exercicios')
+        setOpcoes({ soSemMusculos: true })
+        window.scrollTo(0, 0)
+      },
+    }),
+    [objetivosGuardados, abrirPagina]
+  )
 
   const pesoCorporal = useMemo(
     () => ({
@@ -154,6 +185,11 @@ function Principal({ email, nome, utilizadorId }) {
     refTreino.current?.comecarComFavorito(modo, favorito)
   }
 
+  // Para as ideias de treino: mensagem se agora não der para começar um treino (há um em curso)
+  function motivoParaNaoComecar() {
+    return refTreino.current?.motivoParaNaoComecar() ?? 'Um momento: a app ainda está a abrir.'
+  }
+
   async function exportar() {
     setAExportar(true)
     const { exportarParaFicheiro } = await import('./exportar')
@@ -166,7 +202,9 @@ function Principal({ email, nome, utilizadorId }) {
   // Entradas do menu. Para acrescentar uma (por exemplo, "Ideias de treino"), basta pôr aqui
   // mais um objeto com o nome, o ícone e a ação. Nada aqui descarta o treino em curso.
   const entradasMenu = [
+    { id: 'ideias', nome: 'Ideias de treino', icone: Lightbulb, onEscolher: () => abrirPagina('ideias') },
     { id: 'favoritos', nome: 'Treinos favoritos', icone: Star, onEscolher: () => abrirPagina('favoritos') },
+    { id: 'objetivos', nome: 'Objetivos semanais', icone: Target, onEscolher: () => abrirPagina('objetivos') },
     { id: 'perfil', nome: 'Perfil e medições', icone: User, onEscolher: () => abrirPagina('perfil') },
     {
       id: 'exportar',
@@ -179,7 +217,12 @@ function Principal({ email, nome, utilizadorId }) {
   ]
 
   const noInicio = !pagina && separador === 'treino'
-  const TITULOS_PAGINAS = { perfil: 'Perfil e medições', favoritos: 'Treinos favoritos' }
+  const TITULOS_PAGINAS = {
+    perfil: 'Perfil e medições',
+    favoritos: 'Treinos favoritos',
+    ideias: 'Ideias de treino',
+    objetivos: 'Objetivos semanais',
+  }
   const titulo = pagina ? TITULOS_PAGINAS[pagina] : noInicio ? cabecalhoInicio.titulo : TITULOS[separador]
   const fecharPagina = () => {
     setPagina(null)
@@ -188,6 +231,7 @@ function Principal({ email, nome, utilizadorId }) {
 
   return (
     <ContextoPesoCorporal.Provider value={pesoCorporal}>
+    <ContextoSemana.Provider value={semana}>
     <div className="com-navegacao">
       <Cabecalho titulo={titulo} sobreImagem={noInicio && cabecalhoInicio.hero} onMenu={() => setMenuAberto(true)} />
       <AvisoSemLigacao />
@@ -210,6 +254,15 @@ function Principal({ email, nome, utilizadorId }) {
             <Perfil email={email} nome={nome} utilizadorId={utilizadorId} onVoltar={fecharPagina} />
           ) : pagina === 'favoritos' ? (
             <PaginaFavoritos onVoltar={fecharPagina} onComecar={comecarFavorito} />
+          ) : pagina === 'ideias' ? (
+            <PaginaIdeias
+              musculosIniciais={opcoesPagina.musculos ?? null}
+              onVerificar={motivoParaNaoComecar}
+              onComecar={comecarFavorito}
+              onVoltar={fecharPagina}
+            />
+          ) : pagina === 'objetivos' ? (
+            <ObjetivosSemanais onVoltar={fecharPagina} />
           ) : (
             <>
               {separador === 'historico' && <Historico />}
@@ -266,6 +319,7 @@ function Principal({ email, nome, utilizadorId }) {
         </Confirmar>
       )}
     </div>
+    </ContextoSemana.Provider>
     </ContextoPesoCorporal.Provider>
   )
 }

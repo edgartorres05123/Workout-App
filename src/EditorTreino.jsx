@@ -11,6 +11,7 @@ import NotasTreino from './NotasTreino'
 import NovoBloco from './NovoBloco'
 import Numero from './Numero'
 import OpcoesBloco from './OpcoesBloco'
+import SemanaNoTreino from './SemanaNoTreino'
 import {
   REPS_ALVO_INICIAIS,
   VOLTAS_INICIAIS,
@@ -94,7 +95,8 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
 
   // ---------- Blocos ----------
 
-  async function criarBloco(tipo, exercicios) {
+  // repsAlvo: o alvo de cada exercício (por omissão, o inicial)
+  async function criarBloco(tipo, exercicios, repsAlvo = REPS_ALVO_INICIAIS) {
     const { data: bloco, error } = await supabase
       .from('blocos')
       .insert({ treino_id: treino.id, ordem: proximaOrdem(treino.blocos), tipo, voltas: VOLTAS_INICIAIS[tipo] })
@@ -105,7 +107,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
     const { data: doBloco, error: erroExercicios } = await supabase
       .from('bloco_exercicios')
       .insert(
-        exercicios.map((e, i) => ({ bloco_id: bloco.id, exercicio_id: e.id, ordem: i + 1, reps_alvo: REPS_ALVO_INICIAIS }))
+        exercicios.map((e, i) => ({ bloco_id: bloco.id, exercicio_id: e.id, ordem: i + 1, reps_alvo: repsAlvo }))
       )
       .select(CAMPOS_BLOCO_EXERCICIO)
     onAlterar((t) => ({ ...t, blocos: [...t.blocos, { ...bloco, bloco_exercicios: doBloco ?? [] }] }))
@@ -372,6 +374,13 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
         <Plus size={20} />
         Adicionar bloco
       </button>
+
+      {modo === 'aoVivo' && (
+        <SemanaNoTreino
+          treino={treino}
+          onAdicionar={(exercicio, reps) => criarBloco('serie', [exercicio], reps ?? REPS_ALVO_INICIAIS)}
+        />
+      )}
 
       <NotasTreino key={treino.id} treino={treino} onGuardar={guardarTreino} />
 

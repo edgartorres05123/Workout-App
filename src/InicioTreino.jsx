@@ -1,10 +1,12 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
-import { CalendarPlus, ChevronRight, Dumbbell, Flame, Layers, Play, RotateCcw, Star, Timer, Weight } from 'lucide-react'
-import { buscarFavoritos, buscarTreino, buscarTreinosTerminados } from './consultas'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { CalendarPlus, ChevronRight, Dumbbell, Flame, Layers, Lightbulb, Play, RotateCcw, Star, Timer, Weight } from 'lucide-react'
+import { buscarExercicios, buscarFavoritos, buscarTreino, buscarTreinosTerminados } from './consultas'
 import { useCarga } from './contextoPesoCorporal'
+import { useSemana } from './contextoSemana'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
 import Numero from './Numero'
+import SemanaMusculos from './SemanaMusculos'
 import { estruturaParaCopiar, exerciciosDaEstrutura } from './blocos'
 import {
   abreviarNumero,
@@ -15,6 +17,9 @@ import {
   formatarPeso,
 } from './formatar'
 import { diasDaSemanaAtual, primeiroNome, resumoSemana, saudacao, treinoMaisRecente } from './inicio'
+import { nomeMusculo } from './musculos'
+import { juntarNomes } from './semana'
+import { gerarSugestao, sementeDoDia } from './sugestoes'
 
 // O detalhe do último treino só é descarregado quando se toca no cartão
 // (assim o ficheiro principal, que abre o ecrã de treino, fica mais leve)
@@ -24,9 +29,14 @@ const MAX_NOMES = 3
 const MAX_FAVORITOS = 3
 
 // Os treinos terminados (para a semana e a sequência), o último treino completo (com os blocos)
-// e os treinos favoritos. Os favoritos são um extra: se falharem, o início abre na mesma.
+// os treinos favoritos e os exercícios com os músculos (para a semana por músculo e a sugestão).
+// Os favoritos e os exercícios são um extra: se falharem, o início abre na mesma.
 async function buscarInicio() {
-  const [resultado, favoritos] = await Promise.all([buscarTreinosTerminados(), buscarFavoritos()])
+  const [resultado, favoritos, exercicios] = await Promise.all([
+    buscarTreinosTerminados(),
+    buscarFavoritos(),
+    buscarExercicios(),
+  ])
   if (resultado.erro) return { erro: resultado.erro }
   const recente = treinoMaisRecente(resultado.linhas)
   let ultimo = null
@@ -35,7 +45,10 @@ async function buscarInicio() {
     if (completo.erro) return { erro: completo.erro }
     ultimo = completo.treino
   }
-  return { treinos: resultado.linhas, ultimo, favoritos: favoritos.favoritos ?? [], agora: new Date() }
+  return { treinos: resultado.linhas, ultimo, favoritos: favoritos.favoritos ?? [],
+    exercicios: exercicios.linhas ?? [],
+    agora: new Date(),
+  }
 }
 
 // Ecrã de início do separador Início, quando não há treino em curso.
@@ -145,6 +158,10 @@ export default function InicioTreino({
         <>
           <Semana treinos={dados.treinos} agora={agora} />
 
+          <SemanaMusculos treinos={dados.treinos} exercicios={dados.exercicios} agora={agora} />
+
+          <CartaoSugestao treinos={dados.treinos} exercicios={dados.exercicios} agora={agora} />
+
           {ultimo && <CartaoUltimo treino={ultimo} onAbrir={() => setAberto(ultimo)} />}
 
           <Favoritos
@@ -242,6 +259,40 @@ function Semana({ treinos, agora }) {
         ))}
       </div>
     </>
+  )
+}
+
+// "Sugestão para hoje": os músculos-alvo e os exercícios da sugestão automática (a mesma semente do
+// dia que a página "Ideias de treino" usa ao abrir); tocar abre essa página
+function CartaoSugestao({ treinos, exercicios, agora }) {
+  const { objetivos, abrirIdeias } = useSemana()
+  const sugestao = useMemo(
+    () => gerarSugestao({ treinos, exercicios, objetivos, agora, semente: sementeDoDia(agora) }),
+    [treinos, exercicios, objetivos, agora]
+  )
+  if (!abrirIdeias || sugestao.alvos.length === 0) return null
+  const nomes = sugestao.itens.map((i) => i.exercicio.nome)
+  const resto = nomes.length - 2
+
+  return (
+    <button className="cartao cartao-treino cartao-sugestao" onClick={() => abrirIdeias()}>
+      <span className="cartao-treino-topo">
+        <span className="rotulo-pequeno com-icone">
+          <Lightbulb size={14} aria-hidden="true" />
+          Sugestão para hoje
+        </span>
+        <ChevronRight size={18} className="seta" aria-hidden="true" />
+      </span>
+      <span className="cartao-treino-data">{juntarNomes(sugestao.alvos.map(nomeMusculo))}</span>
+      <span className="cartao-treino-exercicios">
+        {sugestao.insuficiente
+          ? 'Ainda tens poucos exercícios para estes músculos: vê os modelos prontos.'
+          : <>
+              {nomes.length} exercícios: {nomes.slice(0, 2).join(', ')}
+              {resto > 0 && <span className="mais"> +{resto}</span>}
+            </>}
+      </span>
+    </button>
   )
 }
 

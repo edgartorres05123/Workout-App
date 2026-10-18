@@ -31,7 +31,8 @@ async function copiarEstrutura(treinoId, estrutura) {
 // nome: o nome do utilizador (para a saudação); ativo: o separador está visível;
 // onCabecalho({ titulo, hero, emCurso }): informa o cabeçalho da app (título, imagem por baixo e
 // se há um treino ao vivo, para o "Sair" avisar que o treino fica guardado).
-// ref: expõe comecarComFavorito(modo, favorito), usado pela página dos favoritos.
+// ref: expõe comecarComFavorito(modo, favorito), usado pelos favoritos e pelas ideias de treino,
+// e motivoParaNaoComecar().
 export default function Treino({ ref, nome, ativo = true, onCabecalho, onVerFavoritos }) {
   const [aCarregar, setACarregar] = useState(true)
   const [falhouCarregar, setFalhouCarregar] = useState(false)
@@ -129,27 +130,31 @@ export default function Treino({ ref, nome, ativo = true, onCabecalho, onVerFavo
     setNovo(modoNovo)
   }
 
-  // Começar a partir de um favorito: ao vivo começa logo; passado abre a janela com ele escolhido.
+  // Mensagem se agora não der para começar outro treino (null se der)
+  function motivoParaNaoComecar() {
+    if (aCarregar) return 'Um momento: ainda estou a ver se há um treino em curso.'
+    if (treino) {
+      return modo === 'aoVivo'
+        ? 'Já tens um treino em curso. Termina-o antes de começar outro.'
+        : 'Conclui o treino que estás a registar antes de começar outro.'
+    }
+    return null
+  }
+
+  // Começar a partir de um favorito (ou de uma ideia de treino, com a mesma forma: um treino só com
+  // blocos): ao vivo começa logo; passado abre a janela com ele escolhido.
   // Com um treino aberto no editor, não começa outro (o treino em curso nunca é posto de lado).
   function comecarComFavorito(modoNovo, favorito) {
-    if (aCarregar) {
-      avisar('Um momento: ainda estou a ver se há um treino em curso.', 'erro')
-      return
-    }
-    if (treino) {
-      avisar(
-        modo === 'aoVivo'
-          ? 'Já tens um treino em curso. Termina-o antes de começar outro.'
-          : 'Conclui o treino que estás a registar antes de começar outro.',
-        'erro'
-      )
+    const motivo = motivoParaNaoComecar()
+    if (motivo) {
+      avisar(motivo, 'erro')
       return
     }
     if (modoNovo === 'aoVivo') repetir(estruturaParaCopiar(favorito))
     else abrirNovo('passado', favorito)
   }
 
-  useImperativeHandle(ref, () => ({ comecarComFavorito }))
+  useImperativeHandle(ref, () => ({ comecarComFavorito, motivoParaNaoComecar }))
 
   if (aCarregar) return <Esqueleto titulo numeros={3} cartoes={2} />
 
