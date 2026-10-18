@@ -73,7 +73,13 @@
   --toque: 44px;
   --altura-campo: 50px;
   --altura-nav: 64px;
+  --altura-cabecalho: 56px;
   --largura-max: 480px;
+
+  /* Imagem do ecrã de início: altura da faixa e ponto focal (afina aqui o enquadramento:
+     o primeiro valor é horizontal, o segundo vertical; 50% 58% = centro, um pouco abaixo do meio) */
+  --altura-imagem-inicio: clamp(260px, 38vh, 380px);
+  --foco-imagem-inicio: 50% 58%;
 
   /* Movimento */
   --rapido: 150ms;
@@ -100,11 +106,14 @@ body {
   background: var(--fundo);
 }
 
+/* O espaço de cima (e a safe area) fica a cargo do cabeçalho; os ecrãs sem cabeçalho usam .sem-cabecalho */
 #root {
   max-width: var(--largura-max);
   margin: 0 auto;
-  padding: calc(var(--e-5) + env(safe-area-inset-top)) var(--e-4) var(--e-5);
+  padding: 0 var(--e-4) var(--e-5);
 }
+
+.sem-cabecalho { padding-top: calc(var(--e-5) + env(safe-area-inset-top)); }
 
 h1 {
   margin: 0 0 var(--e-2);
@@ -644,7 +653,29 @@ button:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
 
 /* ---------- 6. Entrada (login) ---------- */
 
-.login { padding-top: var(--e-6); }
+/* isolation cria uma camada própria: a imagem de fundo (z-index -1) fica atrás do formulário,
+   mas à frente do fundo do body (sem isto, o body tapava-a) */
+.login {
+  position: relative;
+  isolation: isolate;
+  padding-top: calc(var(--e-6) + env(safe-area-inset-top));
+}
+
+/* A imagem do início, mais escurecida, a ocupar o ecrã todo por trás do formulário */
+.login-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--fundo);
+  background-image:
+    linear-gradient(180deg, rgba(18, 18, 18, 0.72) 0%, rgba(18, 18, 18, 0.86) 45%, var(--fundo) 100%),
+    image-set(url('/imagem-inicio-800.webp') 1x, url('/imagem-inicio-1600.webp') 2x);
+  background-position: center, var(--foco-imagem-inicio);
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.login .cartao { background: rgba(28, 28, 28, 0.88); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 
 .login-logo {
   width: 64px;
@@ -660,7 +691,59 @@ button:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
 
 /* ---------- 7. Treino: início ---------- */
 
-.inicio-cabecalho .subtitulo { margin-bottom: 20px; }
+/* Faixa com a imagem no topo: ocupa a largura toda e sobe por baixo do cabeçalho e da barra de
+   estado. A altura é fixa (sem saltos no layout) e a cor escura aparece enquanto a imagem carrega. */
+.hero {
+  position: relative;
+  height: calc(var(--altura-imagem-inicio) + env(safe-area-inset-top));
+  /* Sobe a altura do cabeçalho mais a margem que ele tem por baixo, para começar no topo do ecrã */
+  margin: calc(-1 * (var(--altura-cabecalho) + env(safe-area-inset-top) + var(--e-3))) calc(-1 * var(--e-4)) var(--e-4);
+  overflow: hidden;
+  background: #1b1b1b;
+}
+
+.hero-imagem {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--foco-imagem-inicio);
+}
+
+/* Degradê escuro em cima (para o cabeçalho e a barra de estado) e em baixo, até ao fundo da app */
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(18, 18, 18, 0.7) 0%,
+    rgba(18, 18, 18, 0.15) 28%,
+    rgba(18, 18, 18, 0.25) 55%,
+    rgba(18, 18, 18, 0.85) 85%,
+    var(--fundo) 100%
+  );
+}
+
+.hero-texto {
+  position: absolute;
+  left: var(--e-4);
+  right: var(--e-4);
+  bottom: var(--e-4);
+  z-index: 1;
+}
+
+.hero-saudacao {
+  margin: 0 0 2px;
+  font-size: var(--t-ecra);
+  font-weight: var(--p-numero);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.hero-data { margin: 0; color: rgba(242, 242, 242, 0.8); font-size: 15px; }
 
 .inicio .cartoes-resumo .com-icone svg { color: var(--laranja); }
 
@@ -716,8 +799,6 @@ button:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
 .resumo-detalhe { margin: var(--e-3) 0 0; }
 
 /* ---------- 8. Treino: editor e cabeçalho ---------- */
-
-.titulo-editor { margin-bottom: var(--e-4); }
 
 .treino-data { margin: 0 0 var(--e-3); color: var(--texto-suave); }
 
@@ -1722,12 +1803,12 @@ button.calor-dia:disabled { opacity: 1; }
 
 .aviso-sem-ligacao {
   position: sticky;
-  top: env(safe-area-inset-top);
-  z-index: 12;
+  top: calc(var(--altura-cabecalho) + env(safe-area-inset-top));
+  z-index: 9;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: calc(-1 * var(--e-2)) 0 var(--e-4);
+  margin: 0 0 var(--e-4);
   padding: 10px 14px;
   border: 1px solid var(--laranja);
   border-radius: var(--raio-campo);
@@ -1761,21 +1842,159 @@ button,
   -webkit-touch-callout: none;
 }
 
-/* Com a barra de estado translúcida do iPhone, o conteúdo que sobe com o scroll ficaria por
-   baixo da hora e da bateria: esta faixa do tamanho da barra de estado tapa-o com o fundo */
-body::before {
-  content: '';
-  position: fixed;
+/* Com a barra de estado translúcida do iPhone, é o cabeçalho (preso no topo, com a safe area)
+   que tapa o conteúdo que sobe com o scroll. Sobre a imagem do início fica transparente. */
+
+/* ---------- 19. Cabeçalho e menu ---------- */
+
+/* Cabeçalho preso no topo, com a safe area da barra de estado. Ocupa a largura toda do #root. */
+.cabecalho {
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  z-index: 15;
-  height: env(safe-area-inset-top);
-  background: var(--fundo);
-  pointer-events: none;
+  z-index: 11;
+  height: calc(var(--altura-cabecalho) + env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+  margin: 0 calc(-1 * var(--e-4)) var(--e-3);
+  padding: env(safe-area-inset-top) var(--e-2) 0 var(--e-4);
+  border-bottom: 1px solid var(--borda);
+  background: rgba(18, 18, 18, 0.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transition: background-color var(--normal), border-color var(--normal);
 }
 
-/* ---------- 19. Animações ---------- */
+.cabecalho-titulo {
+  margin: 0;
+  overflow: hidden;
+  font-size: 22px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity var(--normal);
+}
+
+/* Sobre a imagem do início: transparente, sem título (a saudação está na imagem) */
+.cabecalho.transparente {
+  border-color: transparent;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.cabecalho.transparente .cabecalho-titulo { opacity: 0; }
+
+.botao-menu {
+  width: var(--toque);
+  height: var(--toque);
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--texto);
+}
+
+.cabecalho.transparente .botao-menu {
+  background: rgba(18, 18, 18, 0.35);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* Menu que desliza da direita */
+.menu-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--veu);
+  animation: desvanecer-entrar var(--normal) ease-out;
+}
+
+.menu {
+  width: min(320px, 85vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--e-4) + env(safe-area-inset-top)) var(--e-4) calc(var(--e-4) + env(safe-area-inset-bottom));
+  border-left: 1px solid var(--borda);
+  background: var(--cartao-elevado);
+  box-shadow: var(--sombra);
+  outline: none;
+  animation: entrar-da-direita 260ms var(--suave);
+}
+
+.menu-fundo.a-fechar { animation: desvanecer-sair 200ms ease-in forwards; }
+.menu-fundo.a-fechar .menu { animation: sair-para-direita 200ms ease-in forwards; }
+
+.menu-topo {
+  display: flex;
+  align-items: center;
+  gap: var(--e-3);
+  padding-bottom: var(--e-4);
+  border-bottom: 1px solid var(--borda);
+}
+
+.menu-avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--verde);
+  color: var(--sobre-verde);
+  font-size: 20px;
+  font-weight: var(--p-numero);
+}
+
+.menu-conta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.menu-nome { overflow: hidden; font-weight: var(--p-titulo); white-space: nowrap; text-overflow: ellipsis; }
+
+.menu-email {
+  overflow: hidden;
+  color: var(--texto-suave);
+  font-size: var(--t-pequeno);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.menu-entradas { flex: 1; list-style: none; margin: var(--e-3) 0 0; padding: 0; overflow-y: auto; }
+
+.menu-entrada {
+  justify-content: flex-start;
+  gap: var(--e-3);
+  min-height: 52px;
+  padding: var(--e-2) var(--e-1);
+  border-radius: var(--raio-campo);
+  background: transparent;
+  color: var(--texto);
+  font-weight: var(--p-forte);
+  text-align: left;
+}
+
+.menu-entrada:active:not(:disabled) { transform: none; background: rgba(255, 255, 255, 0.05); }
+.menu-entrada-nome { flex: 1; }
+
+.menu-entrada-icone {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--borda);
+  color: var(--verde);
+}
+
+.menu-entrada.perigo { color: var(--erro); }
+.menu-entrada.perigo .menu-entrada-icone { background: var(--erro-fundo); color: var(--erro); }
+
+.menu-versao { margin: var(--e-3) 0 0; color: var(--texto-fraco); font-size: var(--t-etiqueta); text-align: center; }
+
+/* ---------- 20. Animações ---------- */
 
 @keyframes desvanecer-entrar { from { opacity: 0; } }
 @keyframes desvanecer-sair { to { opacity: 0; } }
@@ -1785,6 +2004,8 @@ body::before {
 @keyframes deslizar-entrar { from { opacity: 0; transform: translateX(18px); } }
 @keyframes subir-aviso { from { opacity: 0; transform: translateY(12px); } }
 @keyframes pulsar { 50% { opacity: 0.45; } }
+@keyframes entrar-da-direita { from { transform: translateX(100%); } }
+@keyframes sair-para-direita { to { transform: translateX(100%); } }
 
 @keyframes pop {
   0% { transform: scale(1); }

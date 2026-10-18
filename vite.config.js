@@ -4,6 +4,20 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    rolldownOptions: {
+      output: {
+        // As bibliotecas grandes ficam em ficheiros próprios: o principal fica mais leve e, quando
+        // há uma versão nova da app, o telemóvel não volta a descarregar o que não mudou
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
@@ -31,8 +45,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Só o "esqueleto" da app: HTML, JS, CSS, ícones e fontes
-        globPatterns: ['**/*.{html,js,css,svg,png,ico,woff,woff2}'],
+        // Só o "esqueleto" da app: HTML, JS, CSS, ícones, fontes e as imagens WebP do início
+        globPatterns: ['**/*.{html,js,css,svg,png,ico,woff,woff2,webp}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         // A versão nova ativa-se logo e toma conta das páginas abertas (que depois recarregam)

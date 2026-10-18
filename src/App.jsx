@@ -1,18 +1,24 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { CalendarDays, ChartColumn, Dumbbell, ListChecks, User, WifiOff } from 'lucide-react'
+import { CalendarDays, ChartColumn, Download, House, ListChecks, LogOut, User, WifiOff } from 'lucide-react'
+import { version as versaoApp } from '../package.json'
 import { supabase } from './supabase'
-import ProvedorAvisos from './ProvedorAvisos'
+import { useAvisos } from './avisos'
+import Cabecalho from './Cabecalho'
+import Confirmar from './Confirmar'
 import Esqueleto from './Esqueleto'
 import Login from './Login'
+import ProvedorAvisos from './ProvedorAvisos'
 import Treino from './Treino'
 
-// Só o ecrã de treino vai no ficheiro principal, para abrir depressa no ginásio; os outros
-// separadores (e o Chart.js) são descarregados quando são abertos. Sem rede também abrem,
-// porque o service worker guarda todos estes ficheiros.
+// Só o separador Início (com o editor de treino) vai no ficheiro principal, para abrir depressa no
+// ginásio; os outros ecrãs (e o Chart.js) são descarregados quando são abertos. Sem rede também
+// abrem, porque o service worker guarda todos estes ficheiros.
 const Historico = lazy(() => import('./Historico'))
 const Exercicios = lazy(() => import('./Exercicios'))
 const PaginaEstatisticas = lazy(() => import('./PaginaEstatisticas'))
 const Perfil = lazy(() => import('./Perfil'))
+// O menu só é descarregado quando se toca no ☰ pela primeira vez
+const MenuLateral = lazy(() => import('./MenuLateral'))
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -34,11 +40,15 @@ export default function App() {
 
   return (
     <ProvedorAvisos>
-      <AvisoSemLigacao />
       {aCarregar ? (
-        <Esqueleto titulo numeros={3} cartoes={2} />
+        <div className="sem-cabecalho">
+          <Esqueleto titulo numeros={3} cartoes={2} />
+        </div>
       ) : !session ? (
-        <Login />
+        <>
+          <AvisoSemLigacao />
+          <Login />
+        </>
       ) : (
         <Principal
           email={session.user.email}
@@ -50,8 +60,8 @@ export default function App() {
   )
 }
 
-// Faixa no topo enquanto o telemóvel estiver sem rede. A interface continua a abrir (o service
-// worker guarda o esqueleto da app) e os pedidos que falham mostram a mesma mensagem.
+// Faixa enquanto o telemóvel estiver sem rede. A interface continua a abrir (o service worker
+// guarda o esqueleto da app) e os pedidos que falham mostram a mesma mensagem.
 function AvisoSemLigacao() {
   const [ligado, setLigado] = useState(() => navigator.onLine)
 
@@ -75,56 +85,144 @@ function AvisoSemLigacao() {
   )
 }
 
+// Separadores da barra de baixo (o Perfil está no menu)
 const SEPARADORES = [
-  { id: 'treino', nome: 'Treino', icone: Dumbbell },
+  { id: 'treino', nome: 'Início', icone: House },
   { id: 'historico', nome: 'Histórico', icone: CalendarDays },
-  { id: 'exercicios', nome: 'Exercícios', icone: ListChecks },
   { id: 'estatisticas', nome: 'Estatísticas', icone: ChartColumn },
-  { id: 'perfil', nome: 'Perfil', icone: User },
+  { id: 'exercicios', nome: 'Exercícios', icone: ListChecks },
 ]
+const TITULOS = Object.fromEntries(SEPARADORES.map((s) => [s.id, s.nome]))
 
 function Principal({ email, nome, utilizadorId }) {
   const [separador, setSeparador] = useState('treino')
   // Opções para o separador aberto (por exemplo, { soSemMusculos: true } nos Exercícios)
   const [opcoes, setOpcoes] = useState({})
+  // Página aberta a partir do menu (por cima dos separadores): null | 'perfil'
+  const [pagina, setPagina] = useState(null)
+  const [menuAberto, setMenuAberto] = useState(false)
+  const [confirmarSair, setConfirmarSair] = useState(false)
+  const [aExportar, setAExportar] = useState(false)
+  // O separador Início diz ao cabeçalho o título, se tem a imagem por baixo e se há treino ao vivo
+  const [cabecalhoInicio, setCabecalhoInicio] = useState({ titulo: 'Início', hero: false, emCurso: false })
+  const avisar = useAvisos()
 
   function irPara(id, novasOpcoes = {}) {
+    setPagina(null)
     setSeparador(id)
     setOpcoes(novasOpcoes)
     window.scrollTo(0, 0)
   }
 
+  function abrirPagina(id) {
+    setPagina(id)
+    window.scrollTo(0, 0)
+  }
+
+  async function exportar() {
+    setAExportar(true)
+    const { exportarParaFicheiro } = await import('./exportar')
+    const resultado = await exportarParaFicheiro()
+    setAExportar(false)
+    if (resultado.erro) return avisar(resultado.erro, 'erro')
+    avisar('Exportado')
+  }
+
+  // Entradas do menu. Para acrescentar uma (por exemplo, "Treinos favoritos"), basta pôr aqui
+  // mais um objeto com o nome, o ícone e a ação. Nada aqui descarta o treino em curso.
+  const entradasMenu = [
+    { id: 'perfil', nome: 'Perfil e medições', icone: User, onEscolher: () => abrirPagina('perfil') },
+    {
+      id: 'exportar',
+      nome: aExportar ? 'A exportar...' : 'Exportar dados',
+      icone: Download,
+      desativada: aExportar,
+      onEscolher: exportar,
+    },
+    { id: 'sair', nome: 'Sair', icone: LogOut, perigo: true, onEscolher: () => setConfirmarSair(true) },
+  ]
+
+  const noInicio = !pagina && separador === 'treino'
+  const titulo = pagina === 'perfil' ? 'Perfil e medições' : noInicio ? cabecalhoInicio.titulo : TITULOS[separador]
+
   return (
     <div className="com-navegacao">
-      {/* O Treino fica sempre montado para não perder o que está no ecrã ao mudar de separador */}
-      <div hidden={separador !== 'treino'}>
-        <Treino nome={nome} ativo={separador === 'treino'} />
+      <Cabecalho titulo={titulo} sobreImagem={noInicio && cabecalhoInicio.hero} onMenu={() => setMenuAberto(true)} />
+      <AvisoSemLigacao />
+
+      {/* O Início fica sempre montado: o treino em curso nunca se perde ao mudar de ecrã */}
+      <div hidden={!noInicio}>
+        <Treino nome={nome} ativo={noInicio} onCabecalho={setCabecalhoInicio} />
       </div>
-      {/* Os outros separadores são montados de novo sempre que se abrem, para recarregar os dados */}
-      <Suspense fallback={<Esqueleto titulo cartoes={3} />}>
-        <div className="vista-separador" key={separador} hidden={separador === 'treino'}>
-          {separador === 'historico' && <Historico />}
-          {separador === 'exercicios' && (
-            <Exercicios soSemMusculosInicial={Boolean(opcoes.soSemMusculos)} />
+
+      {/* Os outros ecrãs são montados de novo sempre que se abrem, para recarregar os dados */}
+      <Suspense fallback={<Esqueleto cartoes={3} />}>
+        <div className="vista-separador" key={pagina ?? separador} hidden={noInicio}>
+          {pagina === 'perfil' ? (
+            <Perfil
+              email={email}
+              nome={nome}
+              utilizadorId={utilizadorId}
+              onVoltar={() => {
+                setPagina(null)
+                window.scrollTo(0, 0)
+              }}
+            />
+          ) : (
+            <>
+              {separador === 'historico' && <Historico />}
+              {separador === 'estatisticas' && <PaginaEstatisticas onIrPara={irPara} />}
+              {separador === 'exercicios' && (
+                <Exercicios soSemMusculosInicial={Boolean(opcoes.soSemMusculos)} />
+              )}
+            </>
           )}
-          {separador === 'estatisticas' && <PaginaEstatisticas onIrPara={irPara} />}
-          {separador === 'perfil' && <Perfil email={email} nome={nome} utilizadorId={utilizadorId} />}
         </div>
       </Suspense>
 
       <nav className="navegacao" aria-label="Separadores">
-        {SEPARADORES.map(({ id, nome: rotulo, icone: Icone }) => (
-          <button
-            key={id}
-            className={separador === id ? 'ativo' : ''}
-            onClick={() => irPara(id)}
-            aria-current={separador === id ? 'page' : undefined}
-          >
-            <Icone size={24} strokeWidth={separador === id ? 2.4 : 2} aria-hidden="true" />
-            <span>{rotulo}</span>
-          </button>
-        ))}
+        {SEPARADORES.map(({ id, nome: rotulo, icone: Icone }) => {
+          const ativo = !pagina && separador === id
+          return (
+            <button
+              key={id}
+              className={ativo ? 'ativo' : ''}
+              onClick={() => irPara(id)}
+              aria-current={ativo ? 'page' : undefined}
+            >
+              <Icone size={24} strokeWidth={ativo ? 2.4 : 2} aria-hidden="true" />
+              <span>{rotulo}</span>
+            </button>
+          )
+        })}
       </nav>
+
+      {menuAberto && (
+        <Suspense fallback={null}>
+          <MenuLateral
+            nome={nome}
+            email={email}
+            entradas={entradasMenu}
+            versao={versaoApp}
+            onFechar={() => setMenuAberto(false)}
+          />
+        </Suspense>
+      )}
+
+      {confirmarSair && (
+        <Confirmar
+          titulo="Sair da conta?"
+          textoConfirmar="Sair"
+          onConfirmar={() => supabase.auth.signOut()}
+          onCancelar={() => setConfirmarSair(false)}
+        >
+          <p>
+            {cabecalhoInicio.emCurso
+              ? 'O treino em curso fica guardado e continua quando voltares a entrar.'
+              : 'Para voltares a entrar, vais precisar do email e da palavra-passe.'}
+          </p>
+        </Confirmar>
+      )}
     </div>
   )
 }

@@ -24,10 +24,12 @@ async function copiarEstrutura(treinoId, estrutura) {
   return erroExercicios ? erroExercicios.message : null
 }
 
-// Separador Treino: retoma o treino em curso, ou mostra o ecrã de início para começar um treino,
+// Separador Início: retoma o treino em curso, ou mostra o ecrã de início para começar um treino,
 // repetir o último ou registar um passado. O editor é o mesmo em todos os casos.
-// nome: o nome do utilizador (para a saudação); ativo: o separador está visível.
-export default function Treino({ nome, ativo = true }) {
+// nome: o nome do utilizador (para a saudação); ativo: o separador está visível;
+// onCabecalho({ titulo, hero, emCurso }): informa o cabeçalho da app (título, imagem por baixo e
+// se há um treino ao vivo, para o "Sair" avisar que o treino fica guardado).
+export default function Treino({ nome, ativo = true, onCabecalho }) {
   const [aCarregar, setACarregar] = useState(true)
   const [falhouCarregar, setFalhouCarregar] = useState(false)
   const [treino, setTreino] = useState(null)
@@ -37,6 +39,17 @@ export default function Treino({ nome, ativo = true }) {
   const [erro, setErro] = useState('')
   const [aCriar, setACriar] = useState(false)
   const [versaoInicio, setVersaoInicio] = useState(0) // muda quando um treino acaba
+
+  // Com um treino aberto no editor, o cabeçalho mostra o título do treino (o ecrã de início trata do resto)
+  const temTreino = Boolean(treino)
+  useEffect(() => {
+    if (!temTreino) return
+    onCabecalho?.({
+      titulo: modo === 'passado' ? 'Treino passado' : 'Treino em curso',
+      hero: false,
+      emCurso: modo === 'aoVivo',
+    })
+  }, [temTreino, modo, onCabecalho])
 
   function aplicarCarregamento(resultado) {
     if (resultado.erro) {
@@ -107,11 +120,9 @@ export default function Treino({ nome, ativo = true }) {
 
   if (aCarregar) return <Esqueleto titulo numeros={3} cartoes={2} />
 
-
   if (falhouCarregar) {
     return (
       <div>
-        <h1>Treino</h1>
         <p className="erro">{erro}</p>
         <button onClick={tentarNovamente}>Tentar novamente</button>
       </div>
@@ -121,7 +132,6 @@ export default function Treino({ nome, ativo = true }) {
   if (treino) {
     return (
       <div>
-        {modo === 'passado' && <h1 className="titulo-editor">Treino passado</h1>}
         {erro && <p className="erro">{erro}</p>}
         <EditorTreino
           modo={modo}
@@ -139,6 +149,7 @@ export default function Treino({ nome, ativo = true }) {
     <div>
       {erro && <p className="erro">{erro}</p>}
       <InicioTreino
+        onCabecalho={onCabecalho}
         nome={nome}
         ativo={ativo}
         recarregar={versaoInicio}

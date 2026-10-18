@@ -35,13 +35,29 @@ async function buscarInicio() {
   return { treinos: resultado.linhas, ultimo, agora: new Date() }
 }
 
-// Ecrã de início do separador Treino, quando não há treino em curso.
+// Ecrã de início do separador Início, quando não há treino em curso.
 // ativo: o separador está visível (recarrega ao voltar); recarregar: muda depois de um treino acabar.
-export default function InicioTreino({ nome, ativo, recarregar, resumo, aCriar, onComecar, onRepetir, onRegistar }) {
+// onCabecalho({ titulo, hero }): diz ao cabeçalho se há imagem por baixo (para ficar transparente).
+export default function InicioTreino({
+  nome,
+  ativo,
+  recarregar,
+  resumo,
+  aCriar,
+  onComecar,
+  onRepetir,
+  onRegistar,
+  onCabecalho,
+}) {
+  const [agoraInicial] = useState(() => new Date())
   const [dados, setDados] = useState(null) // null = a carregar
   const [erro, setErro] = useState('')
   const [aberto, setAberto] = useState(null) // treino aberto no detalhe
   const [versao, setVersao] = useState(0)
+
+  useEffect(() => {
+    onCabecalho?.({ titulo: aberto ? 'Treino' : 'Início', hero: !aberto, emCurso: false })
+  }, [aberto, onCabecalho])
 
   useEffect(() => {
     if (!ativo) return
@@ -77,17 +93,20 @@ export default function InicioTreino({ nome, ativo, recarregar, resumo, aCriar, 
     )
   }
 
-  const agora = dados?.agora ?? null
+  const agora = dados?.agora ?? agoraInicial
   const primeiro = primeiroNome(nome)
   const ultimo = dados?.ultimo
   const temEstrutura = ultimo?.blocos?.some((b) => b.bloco_exercicios.length > 0)
 
   return (
     <div className="inicio">
-      <header className="inicio-cabecalho">
-        <h1>{agora ? `${saudacao(agora)}${primeiro ? `, ${primeiro}` : ''}` : 'Treino'}</h1>
-        {agora && <p className="subtitulo">{formatarDataExtenso(agora)}</p>}
-      </header>
+      <ImagemInicio>
+        <h2 className="hero-saudacao">
+          {saudacao(agora)}
+          {primeiro ? `, ${primeiro}` : ''}
+        </h2>
+        <p className="hero-data">{formatarDataExtenso(agora)}</p>
+      </ImagemInicio>
 
       {resumo && (
         <div className="cartao resumo">
@@ -146,6 +165,28 @@ export default function InicioTreino({ nome, ativo, recarregar, resumo, aCriar, 
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// Faixa com a imagem no topo do início, a passar por baixo do cabeçalho e da barra de estado.
+// O contentor tem altura fixa (sem saltos no layout) e uma cor escura enquanto a imagem carrega.
+// O enquadramento afina-se na variável CSS --foco-imagem-inicio (object-position).
+function ImagemInicio({ children }) {
+  return (
+    <div className="hero">
+      <img
+        className="hero-imagem"
+        src="/imagem-inicio-800.webp"
+        srcSet="/imagem-inicio-800.webp 800w, /imagem-inicio-1600.webp 1600w"
+        sizes="(min-width: 480px) 480px, 100vw"
+        width="800"
+        height="1776"
+        alt=""
+        decoding="async"
+        fetchPriority="high"
+      />
+      <div className="hero-texto">{children}</div>
     </div>
   )
 }

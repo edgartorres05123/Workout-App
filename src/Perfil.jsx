@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { ChevronRight, Download, LogOut, Plus, Ruler } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Ruler } from 'lucide-react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
-import { buscarMedicoes, exportarTodosOsDados } from './consultas'
+import { buscarMedicoes } from './consultas'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
 import FormMedicao from './FormMedicao'
@@ -48,7 +48,8 @@ async function buscarDados() {
   }
 }
 
-export default function Perfil({ email, nome, utilizadorId }) {
+// Página "Perfil e medições", aberta a partir do menu (com ‹ Voltar)
+export default function Perfil({ email, nome, utilizadorId, onVoltar }) {
   const [dados, setDados] = useState(null) // null = a carregar
   const [erro, setErro] = useState('')
   // undefined = fechado; null = nova medição; objeto = editar essa medição
@@ -90,8 +91,13 @@ export default function Perfil({ email, nome, utilizadorId }) {
   }
 
   return (
-    <div>
-      <h1>Perfil</h1>
+    <div className="vista-detalhe">
+      <div className="detalhe-topo">
+        <button className="botao-voltar com-icone" onClick={onVoltar}>
+          <ChevronLeft size={20} />
+          Voltar
+        </button>
+      </div>
       {erro && <p className="erro">{erro}</p>}
 
       {dados === null ? (
@@ -133,15 +139,8 @@ export default function Perfil({ email, nome, utilizadorId }) {
               <ListaMedicoes medicoes={dados.medicoes} onAbrir={setMedicaoAberta} />
             </>
           )}
-
-          <Exportar />
         </>
       )}
-
-      <button className="botao-secundario botao-sair com-icone" onClick={() => supabase.auth.signOut()}>
-        <LogOut size={18} />
-        Sair
-      </button>
 
       {medicaoAberta !== undefined && (
         <FormMedicao
@@ -408,58 +407,6 @@ function ListaMedicoes({ medicoes, onAbrir }) {
           <ChevronRight size={20} className="seta" aria-hidden="true" />
         </button>
       ))}
-    </div>
-  )
-}
-
-// ---------- Exportar ----------
-
-function Exportar() {
-  const [aExportar, setAExportar] = useState(false)
-  const [mensagem, setMensagem] = useState('')
-  const [erro, setErro] = useState('')
-  const avisar = useAvisos()
-
-  async function exportar() {
-    setAExportar(true)
-    setErro('')
-    setMensagem('')
-    const resultado = await exportarTodosOsDados()
-    setAExportar(false)
-    if (resultado.erro) return setErro(resultado.erro)
-
-    const nome = `workout-backup-${chaveDia(new Date())}.json`
-    const ficheiro = new Blob([JSON.stringify(resultado.dados, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(ficheiro)
-    const ligacao = document.createElement('a')
-    ligacao.href = url
-    ligacao.download = nome
-    document.body.appendChild(ligacao)
-    ligacao.click()
-    ligacao.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 10000)
-
-    const { tabelas } = resultado.dados
-    avisar('Ficheiro exportado')
-    setMensagem(
-      `${nome}: ${tabelas.treinos.length} treinos, ${tabelas.series.length} séries, ` +
-        `${tabelas.exercicios.length} exercícios e ${tabelas.medicoes.length} medições.`
-    )
-  }
-
-  return (
-    <div className="cartao exportar">
-      <h2>Cópia de segurança</h2>
-      <p className="subtitulo">
-        Descarrega um ficheiro JSON com todos os teus dados: perfil, exercícios, treinos, séries e
-        medições.
-      </p>
-      <button className="botao-secundario sem-margem-topo com-icone" onClick={exportar} disabled={aExportar}>
-        <Download size={18} />
-        {aExportar ? 'A preparar o ficheiro...' : 'Exportar os meus dados'}
-      </button>
-      {mensagem && <p className="nota">{mensagem}</p>}
-      {erro && <p className="erro">{erro}</p>}
     </div>
   )
 }

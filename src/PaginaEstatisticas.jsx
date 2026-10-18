@@ -126,7 +126,6 @@ export default function PaginaEstatisticas({ onIrPara }) {
   return (
     <div>
       <div hidden={Boolean(vista)}>
-        <h1>Estatísticas</h1>
         {erro && <p className="erro">{erro}</p>}
 
         {dados === null ? (

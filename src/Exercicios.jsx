@@ -111,7 +111,6 @@ export default function Exercicios({ soSemMusculosInicial = false }) {
     <div>
       {/* A lista fica escondida (e não desmontada) enquanto o detalhe está aberto */}
       <div hidden={Boolean(aberto)}>
-        <h1>Exercícios</h1>
 
         {aCriar ? (
           <NovoExercicio

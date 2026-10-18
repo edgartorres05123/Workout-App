@@ -137,7 +137,6 @@ export default function Historico() {
     <div>
       {/* A lista fica escondida (e não desmontada) enquanto o detalhe está aberto */}
       <div hidden={Boolean(aberto)}>
-        <h1>Histórico</h1>
 
         <Calendario
           diaSelecionado={dia}

@@ -24,7 +24,9 @@ export default function Login() {
   }
 
   return (
-    <div className="login">
+    <div className="login sem-cabecalho">
+      {/* A imagem do início, mais escurecida, como fundo do ecrã de entrada */}
+      <div className="login-fundo" aria-hidden="true" />
       <span className="login-logo" aria-hidden="true">
         <Dumbbell size={36} strokeWidth={2.4} />
       </span>
