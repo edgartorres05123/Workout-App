@@ -11,6 +11,7 @@ import EditorTreino from './EditorTreino'
 import IconeBloco from './IconeBloco'
 import NomeFavorito from './NomeFavorito'
 import NotasTreino from './NotasTreino'
+import CaloriasTreino from './CaloriasTreino'
 import Numero from './Numero'
 import { estadoVoltas, letraExercicio, normalizarTreino, numerarBlocos, sugerirNomeFavorito, tituloBloco } from './blocos'
 import {
@@ -154,6 +155,8 @@ export default function DetalheTreino({ treino: treinoRecebido, onVoltar, onAlte
         </div>
         <AvisoPesoCorporal mostrar={treino.series.some((s) => s.exercicios?.peso_corporal)} />
       </div>
+
+      <CaloriasTreino key={`${treino.id}-${treino.calorias_kcal ?? ''}`} treino={treino} onGuardar={guardarTreino} />
 
       {treino.blocos.length === 0 && semBloco.length === 0 && (
         <p className="subtitulo">Este treino não tem blocos. Toca em Editar para os adicionar.</p>

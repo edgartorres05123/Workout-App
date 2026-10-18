@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Layers, Timer, Weight, X } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Flame, Layers, Timer, Weight, X } from 'lucide-react'
 import { supabase } from './supabase'
 import { resumoSessao, sessoesDoTreino } from './cardio'
 import { SELECT_TREINO } from './consultas'
 import DetalheTreino from './DetalheTreino'
-import { useCarga } from './contextoPesoCorporal'
+import { textoKcal } from './calorias'
+import { useCalorias, useCarga } from './contextoPesoCorporal'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
 import IconeAtividade from './IconeAtividade'
@@ -208,6 +209,14 @@ function CartaoTreino({ treino, onAbrir }) {
   const carga = useCarga()
   const cardio = sessoesDoTreino(treino)
   const soCardio = treino.series.length === 0 && cardio.length > 0
+  const estimar = useCalorias()
+  const calorias = estimar(treino)
+  const kcal = calorias.kcal !== null && (
+    <span className="com-icone">
+      <Flame size={15} aria-hidden="true" />
+      {textoKcal(calorias)}
+    </span>
+  )
   const numSeries = treino.series.filter((s) => !s.aquecimento).length
   const nomes = agruparPorExercicio(treino.series).map((g) => g.exercicio.nome)
   const resto = nomes.length - MAX_NOMES
@@ -222,12 +231,15 @@ function CartaoTreino({ treino, onAbrir }) {
         </span>
       </span>
       {soCardio ? (
-        cardio.map((sessao) => (
-          <span key={sessao.bloco_id} className="cartao-treino-cardio so-cardio com-icone">
-            <IconeAtividade atividade={sessao.atividade} size={18} />
-            {resumoSessao(sessao)}
-          </span>
-        ))
+        <>
+          {cardio.map((sessao) => (
+            <span key={sessao.bloco_id} className="cartao-treino-cardio so-cardio com-icone">
+              <IconeAtividade atividade={sessao.atividade} size={18} />
+              {resumoSessao(sessao)}
+            </span>
+          ))}
+          {kcal && <span className="cartao-treino-numeros">{kcal}</span>}
+        </>
       ) : (
         <>
           <span className="cartao-treino-numeros">
@@ -243,6 +255,7 @@ function CartaoTreino({ treino, onAbrir }) {
               <Layers size={15} aria-hidden="true" />
               {numSeries} {numSeries === 1 ? 'série' : 'séries'}
             </span>
+            {kcal}
           </span>
           {nomes.length > 0 && (
             <span className="cartao-treino-exercicios">

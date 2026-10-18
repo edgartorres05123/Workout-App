@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChartColumn, ChevronRight, Dumbbell, Flame, Timer, Trophy, TriangleAlert } from 'lucide-react'
 import AvisoPesoCorporal from './AvisoPesoCorporal'
 import { buscarExercicios, buscarTreino, buscarTreinosTerminados } from './consultas'
-import { useCarga, usePesoCorporal } from './contextoPesoCorporal'
+import { useCalorias, useCarga, usePesoCorporal } from './contextoPesoCorporal'
 import DetalheExercicio from './DetalheExercicio'
 import DetalheTreino from './DetalheTreino'
 import Esqueleto from './Esqueleto'
@@ -41,6 +41,7 @@ const METRICAS = [
   { id: 'volume', nome: 'Volume' },
   { id: 'duracao', nome: 'Duração' },
   { id: 'series', nome: 'Séries' },
+  { id: 'calorias', nome: 'Calorias' },
 ]
 // Separadores internos: o ginásio (força) e o cardio
 const SEPARADORES = [
@@ -62,6 +63,7 @@ const DIAS_SEMANA = ['S', '', 'Q', '', 'S', '', ''] // só segunda, quarta e sex
 function formatarMetrica(valor, metrica) {
   if (metrica === 'volume') return `${abreviarNumero(valor)} kg`
   if (metrica === 'duracao') return formatarMinutos(Math.round(valor))
+  if (metrica === 'calorias') return `${abreviarNumero(valor)} kcal`
   return abreviarNumero(valor)
 }
 
@@ -219,9 +221,16 @@ export default function PaginaEstatisticas({ onIrPara }) {
 
 // ---------- a) Resumo ----------
 
-function SeccaoResumo({ treinos, agora, carga }) {
+function SeccaoResumo({ treinos: semCalorias, agora, carga }) {
   const [metrica, setMetrica] = useState('volume')
   const [unidade, setUnidade] = useState('semana')
+  // As calorias de cada treino (estimativa conservadora, ou as do relógio)
+  const estimar = useCalorias()
+  const treinos = useMemo(
+    () => (metrica === 'calorias' ? semCalorias.map((t) => ({ ...t, kcal: estimar(t).kcal })) : semCalorias),
+    [semCalorias, metrica, estimar]
+  )
+  const semPeso = metrica === 'calorias' && treinos.length > 0 && treinos.every((t) => t.kcal === null)
 
   const resumo = useMemo(() => resumoPeriodos(treinos, metrica, agora, carga), [treinos, metrica, agora, carga])
   const serie = useMemo(
@@ -306,6 +315,13 @@ function SeccaoResumo({ treinos, agora, carga }) {
           opcoes={opcoes}
           descricao={`Gráfico de barras: ${metrica} nas últimas 12 ${unidade === 'semana' ? 'semanas' : 'meses'}`}
         />
+        {metrica === 'calorias' && (
+          <p className="nota">
+            {semPeso
+              ? 'Sem o teu peso não há estimativa: regista-o em Perfil e medições.'
+              : 'Estimativa conservadora das calorias gastas pelo exercício, além do repouso (ou as do relógio, quando as escreveste).'}
+          </p>
+        )}
       </div>
     </section>
   )

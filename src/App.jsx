@@ -4,7 +4,7 @@ import { version as versaoApp } from '../package.json'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
 import Cabecalho from './Cabecalho'
-import { buscarPesosCorporais } from './consultas'
+import { buscarPerfilCorpo, buscarPesosCorporais } from './consultas'
 import { ContextoPesoCorporal } from './contextoPesoCorporal'
 import { ContextoSemana } from './contextoSemana'
 import Confirmar from './Confirmar'
@@ -119,13 +119,16 @@ function Principal({ email, nome, utilizadorId, objetivosGuardados }) {
   const avisar = useAvisos()
   // Medições (data e peso), para o peso corporal numa data; partilhadas por todos os ecrãs
   const [medicoes, setMedicoes] = useState({ lista: [], carregadas: false })
+  // Data de nascimento e sexo (para as calorias pela frequência cardíaca)
+  const [perfilCorpo, setPerfilCorpo] = useState({ data_nascimento: null, sexo: null })
   // Para começar um treino (ao vivo ou passado) a partir dos favoritos, no separador Início
   const refTreino = useRef(null)
 
   const recarregarMedicoes = useCallback(() => {
-    return buscarPesosCorporais().then((resultado) => {
+    return Promise.all([buscarPesosCorporais(), buscarPerfilCorpo()]).then(([resultado, perfil]) => {
       // Se falhar (por exemplo, sem rede), as contas usam só o peso extra até à próxima vez
       if (!resultado.erro) setMedicoes({ lista: resultado.linhas, carregadas: true })
+      if (!perfil.erro) setPerfilCorpo(perfil.perfil)
     })
   }, [])
 
@@ -172,10 +175,11 @@ function Principal({ email, nome, utilizadorId, objetivosGuardados }) {
     () => ({
       medicoes: medicoes.lista,
       carregadas: medicoes.carregadas,
+      perfil: perfilCorpo,
       recarregar: recarregarMedicoes,
       abrirPerfil: () => abrirPagina('perfil'),
     }),
-    [medicoes, recarregarMedicoes, abrirPagina]
+    [medicoes, perfilCorpo, recarregarMedicoes, abrirPagina]
   )
 
   // "Começar" ou "Registar passado" a partir de um favorito: vai para o Início e pede ao separador

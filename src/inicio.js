@@ -38,6 +38,24 @@ export function resumoSemana(treinos, agora, carga) {
   return { treinos: treinosEstaSemana, sequencia: atual, volume: semana.valor }
 }
 
+// Calorias desta semana: a soma das estimativas (ou das do relógio) dos treinos terminados desta semana.
+// estimar(treino) → { kcal } (ver calorias.js). null se nenhum treino tiver valor (por exemplo, sem peso).
+export function kcalDaSemana(treinos, agora, estimar) {
+  const inicio = inicioSemana(agora)
+  const fim = somarDias(inicio, 7)
+  let total = 0
+  let algum = false
+  for (const t of treinos) {
+    const data = new Date(t.data)
+    if (data < inicio || data >= fim) continue
+    const { kcal } = estimar(t)
+    if (kcal === null) continue
+    total += kcal
+    algum = true
+  }
+  return algum ? total : null
+}
+
 // O treino mais recente, ou null
 export function treinoMaisRecente(treinos) {
   return treinos.reduce((maisRecente, t) => (!maisRecente || new Date(t.data) > new Date(maisRecente.data) ? t : maisRecente), null)

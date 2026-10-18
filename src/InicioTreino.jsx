@@ -19,7 +19,7 @@ import { buscarAtividadesCardio, buscarExercicios, buscarFavoritos, buscarTreino
 import { cardioDaSemana, resumoSessao, sessoesCardio, sessoesDoTreino, textoDistancia } from './cardio'
 import { formatarTempo } from './condicionamento'
 import IconeAtividade from './IconeAtividade'
-import { useCarga } from './contextoPesoCorporal'
+import { useCalorias, useCarga } from './contextoPesoCorporal'
 import { useSemana } from './contextoSemana'
 import Esqueleto from './Esqueleto'
 import EstadoVazio from './EstadoVazio'
@@ -34,7 +34,7 @@ import {
   formatarMinutos,
   formatarPeso,
 } from './formatar'
-import { diasDaSemanaAtual, primeiroNome, resumoSemana, saudacao, treinoMaisRecente } from './inicio'
+import { diasDaSemanaAtual, kcalDaSemana, primeiroNome, resumoSemana, saudacao, treinoMaisRecente } from './inicio'
 import { nomeMusculo } from './musculos'
 import { juntarNomes } from './semana'
 import { gerarSugestao, sementeDoDia } from './sugestoes'
@@ -272,10 +272,12 @@ function Semana({ treinos, agora }) {
   const carga = useCarga()
   const resumo = resumoSemana(treinos, agora, carga)
   const dias = diasDaSemanaAtual(treinos, agora)
+  const estimar = useCalorias()
+  const kcal = kcalDaSemana(treinos, agora, estimar)
 
   return (
     <>
-      <div className="cartoes-resumo">
+      <div className="cartoes-resumo quatro">
         <div className="cartao cartao-numero">
           <span className="cartao-numero-valor">{resumo.treinos}</span>
           <span className="cartao-numero-rotulo">{resumo.treinos === 1 ? 'Treino esta semana' : 'Treinos esta semana'}</span>
@@ -290,6 +292,10 @@ function Semana({ treinos, agora }) {
         <div className="cartao cartao-numero">
           <span className="cartao-numero-valor">{abreviarNumero(resumo.volume)} kg</span>
           <span className="cartao-numero-rotulo">Volume esta semana</span>
+        </div>
+        <div className="cartao cartao-numero">
+          <span className="cartao-numero-valor">{kcal === null ? '—' : `≈ ${abreviarNumero(kcal)}`}</span>
+          <span className="cartao-numero-rotulo">kcal esta semana</span>
         </div>
       </div>
 

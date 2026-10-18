@@ -11,6 +11,7 @@ import Confirmar from './Confirmar'
 import EstadoVazio from './EstadoVazio'
 import NotasTreino from './NotasTreino'
 import NovoBloco from './NovoBloco'
+import { CaloriasEditor } from './CaloriasTreino'
 import Numero from './Numero'
 import OpcoesBloco from './OpcoesBloco'
 import SemanaNoTreino from './SemanaNoTreino'
@@ -447,6 +448,7 @@ export default function EditorTreino({ modo, treino: treinoRecebido, onAlterar, 
             <Numero valor={formatarMinutos(treino.duracao_min ?? 0)} rotulo="Duração" />
           )}
           <Numero valor={`${formatarPeso(volume)} kg`} rotulo="Volume" />
+          <CaloriasEditor treino={treino} aoVivo={modo === 'aoVivo'} />
         </div>
         {progresso.total > 0 && <BarraProgresso {...progresso} />}
         {modo !== 'aoVivo' && <CamposTreino treino={treino} onGuardar={guardarTreino} />}

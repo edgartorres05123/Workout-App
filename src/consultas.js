@@ -14,7 +14,7 @@ const SELECT_BLOCOS =
 // Um treino com as relações aninhadas: treinos → blocos → bloco_exercicios, e treinos → series.
 // Os exercícios vêm com peso_corporal, para a carga efetiva (ver pesoCorporal.js).
 export const SELECT_TREINO =
-  `id, data, duracao_min, notas, favorito, nome_favorito, ${SELECT_BLOCOS}, ` +
+  `id, data, duracao_min, notas, favorito, nome_favorito, calorias_kcal, ${SELECT_BLOCOS}, ` +
   'series(id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, duracao_seg, aquecimento, exercicios(id, nome, peso_corporal))'
 
 // Um exercício com os seus músculos (e se é de peso corporal)
@@ -38,13 +38,17 @@ export function buscarExercicios() {
 }
 
 // Todos os treinos terminados com as séries, para as estatísticas. Cada série traz se o exercício é
-// de peso corporal (sem o nome), para a carga efetiva.
+// de peso corporal (sem o nome), para a carga efetiva. Os blocos (com a configuração e o cardio) e
+// calorias_kcal servem para a estimativa das calorias.
 export function buscarTreinosTerminados() {
   return buscarTudo(() =>
     supabase
       .from('treinos')
       .select(
-        'id, data, duracao_min, series(id, exercicio_id, ordem, repeticoes, peso_kg, duracao_seg, aquecimento, exercicios(peso_corporal))'
+        'id, data, duracao_min, calorias_kcal, ' +
+          'series(id, bloco_id, volta, exercicio_id, ordem, repeticoes, peso_kg, duracao_seg, aquecimento, exercicios(peso_corporal)), ' +
+          'blocos(id, tipo, voltas, duracao_seg, intervalo_seg, tempo_seg, ' +
+          'atividades_cardio(id, atividade, duracao_seg, distancia_m, velocidade_kmh, inclinacao_pct, intensidade, fc_media))'
       )
       .not('duracao_min', 'is', null)
       .order('id')
@@ -72,6 +76,13 @@ export async function buscarUsosAtividades() {
   const usos = new Map()
   for (const { atividade } of resultado.linhas) usos.set(atividade, (usos.get(atividade) ?? 0) + 1)
   return { usos }
+}
+
+// A data de nascimento e o sexo (para as calorias pela frequência cardíaca); sem perfil, tudo a null
+export async function buscarPerfilCorpo() {
+  const { data, error } = await supabase.from('perfil').select('data_nascimento, sexo').maybeSingle()
+  if (error) return { erro: error.message }
+  return { perfil: data ?? { data_nascimento: null, sexo: null } }
 }
 
 // Todas as medições corporais (InBody)

@@ -42,9 +42,11 @@ const seriesNormais = (series) => series.filter((s) => !s.aquecimento)
 // de reps nem no 1RM (mas entram no volume, com 0, e nos músculos da semana)
 const seriesComReps = (series) => seriesNormais(series).filter((s) => s.repeticoes > 0)
 
-// metrica: 'treinos' | 'volume' | 'duracao' (minutos) | 'series' (sem aquecimento)
+// metrica: 'treinos' | 'volume' | 'duracao' (minutos) | 'series' (sem aquecimento) |
+// 'calorias' (treino.kcal, calculado antes com calorias.js; sem ele, 0)
 export function metricaTreino(treino, metrica, carga = cargaSimples) {
   if (metrica === 'treinos') return 1
+  if (metrica === 'calorias') return treino.kcal ?? 0
   if (metrica === 'volume') return volumeTreino(treino, carga)
   if (metrica === 'duracao') return treino.duracao_min ?? 0
   return seriesNormais(treino.series).length

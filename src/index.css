@@ -2816,3 +2816,53 @@ button,
 }
 
 .legenda-ponto.so-cardio { margin-left: var(--e-3); background: var(--ciano); }
+
+/* ---------- Calorias ---------- */
+
+/* Com três números (duração, volume, calorias), os valores encolhem para caberem num telemóvel */
+.numeros:has(> :nth-child(3)) { gap: var(--e-2); }
+.numeros:has(> :nth-child(3)) .numero-valor { font-size: clamp(17px, 5.4vw, var(--t-valor)); white-space: nowrap; }
+
+.cartoes-resumo.quatro { grid-template-columns: repeat(2, 1fr); }
+
+.calorias-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e-3);
+}
+
+.calorias-topo h2 { margin: 0; gap: var(--e-2); }
+.calorias-topo h2 svg { color: var(--laranja); }
+.botao-info { width: 36px; height: 36px; background: transparent; color: var(--texto-suave); }
+
+.calorias-valor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e-2);
+  margin: var(--e-2) 0;
+  font-size: var(--t-valor);
+  font-weight: var(--p-numero);
+  font-variant-numeric: tabular-nums;
+}
+
+.etiqueta-relogio { background: var(--azul-fundo); color: var(--azul); }
+
+.calorias-partes { list-style: none; margin: var(--e-2) 0 var(--e-3); padding: 0; }
+
+.calorias-partes li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--e-3);
+  padding: 6px 0;
+  border-top: 1px solid var(--borda);
+  font-size: var(--t-secundario);
+}
+
+.calorias-partes-tempo { color: var(--texto-suave); }
+.calorias-partes-kcal { min-width: 64px; font-weight: var(--p-forte); text-align: right; font-variant-numeric: tabular-nums; }
+.calorias-relogio { margin-top: var(--e-2); }
+
+.nota-calorias { align-items: flex-start; gap: var(--e-2); }
+.nota-calorias svg { flex-shrink: 0; margin-top: 2px; color: var(--laranja); }

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Ruler, Scale } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Flame, Plus, Ruler, Scale } from 'lucide-react'
 import { supabase } from './supabase'
 import { useAvisos } from './avisos'
 import { buscarMedicoes } from './consultas'
@@ -75,6 +75,7 @@ export default function Perfil({ email, nome, utilizadorId, onVoltar }) {
 
   function perfilGuardado(campos) {
     setDados((atuais) => ({ ...atuais, perfil: { ...atuais.perfil, ...campos } }))
+    recarregar() // a idade e o sexo entram nas calorias
   }
 
   function medicaoGuardada(medicao) {
@@ -120,6 +121,14 @@ export default function Perfil({ email, nome, utilizadorId, onVoltar }) {
             utilizadorId={utilizadorId}
             onGuardado={perfilGuardado}
           />
+
+          {(!dados.perfil.data_nascimento || !dados.perfil.sexo || !dados.medicoes.some((m) => m.peso_kg)) && (
+            <p className="nota com-icone nota-calorias">
+              <Flame size={14} aria-hidden="true" />
+              Completa a data de nascimento, o sexo e o peso: as calorias dos treinos ficam mais certas (sem o peso,
+              não há estimativa).
+            </p>
+          )}
 
           <div className="cabecalho-seccao">
             <h2 className="titulo-seccao">Medições corporais</h2>
