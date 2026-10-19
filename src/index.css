@@ -680,7 +680,7 @@ button:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
   background-color: var(--fundo);
   background-image:
     linear-gradient(180deg, rgba(18, 18, 18, 0.72) 0%, rgba(18, 18, 18, 0.86) 45%, var(--fundo) 100%),
-    image-set(url('/imagem-inicio-800.webp') 1x, url('/imagem-inicio-1600.webp') 2x);
+    url('/imagem-inicio.webp');
   background-position: center, var(--foco-imagem-inicio);
   background-size: cover;
   background-repeat: no-repeat;

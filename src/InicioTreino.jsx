@@ -253,11 +253,9 @@ function ImagemInicio({ children }) {
     <div className="hero">
       <img
         className="hero-imagem"
-        src="/imagem-inicio-800.webp"
-        srcSet="/imagem-inicio-800.webp 800w, /imagem-inicio-1600.webp 1600w"
-        sizes="(min-width: 480px) 480px, 100vw"
-        width="800"
-        height="1776"
+        src="/imagem-inicio.webp"
+        width="768"
+        height="1376"
         alt=""
         decoding="async"
         fetchPriority="high"
