@@ -289,7 +289,7 @@ function Principal({ email, nome, utilizadorId, objetivosGuardados }) {
               onClick={() => irPara(id)}
               aria-current={ativo ? 'page' : undefined}
             >
-              <Icone size={24} strokeWidth={ativo ? 2.4 : 2} aria-hidden="true" />
+              <Icone size={22} strokeWidth={ativo ? 2.4 : 2} aria-hidden="true" />
               <span>{rotulo}</span>
             </button>
           )

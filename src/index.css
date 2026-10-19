@@ -45,30 +45,32 @@
   --veu: rgba(0, 0, 0, 0.62);
   --sombra: 0 10px 30px rgba(0, 0, 0, 0.5);
 
-  /* Tipografia */
+  /* Tipografia (escala compacta, cerca de 10% abaixo da original; entre parênteses, o valor antigo) */
   --fonte: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --t-etiqueta: 12px;   /* etiqueta pequena */
-  --t-pequeno: 13px;    /* notas e ajudas */
-  --t-secundario: 14px; /* texto secundário */
-  --t-base: 16px;       /* texto e campos (mínimo para o iPhone não fazer zoom) */
-  --t-cartao: 18px;     /* título de cartão */
-  --t-seccao: 20px;     /* título de secção */
-  --t-valor: 26px;      /* valor grande */
-  --t-ecra: 28px;       /* título do ecrã */
-  --t-valor-grande: 34px;
+  --t-etiqueta: 11px;   /* etiqueta pequena (12) */
+  --t-pequeno: 12px;    /* notas e ajudas (13) */
+  --t-secundario: 13px; /* texto secundário (14) */
+  --t-base: 15px;       /* texto de leitura e botões (16); nunca abaixo de 14 */
+  --t-campo: 16px;      /* campos de texto e números: fixo, para o iPhone não fazer zoom */
+  --t-cartao: 16px;     /* título de cartão (18) */
+  --t-seccao: 18px;     /* título de secção (20) */
+  --t-cabecalho: 20px;  /* título no cabeçalho (22) */
+  --t-valor: 23px;      /* valor grande (26) */
+  --t-ecra: 24px;       /* título do ecrã (28) */
+  --t-valor-grande: 30px; /* (34) */
   --p-normal: 400;
   --p-medio: 500;
   --p-forte: 600;
   --p-titulo: 700;
   --p-numero: 800;
 
-  /* Espaçamentos */
+  /* Espaçamentos (os maiores um degrau abaixo; entre parênteses, o valor antigo) */
   --e-1: 4px;
   --e-2: 8px;
-  --e-3: 12px;
-  --e-4: 16px;
-  --e-5: 24px;
-  --e-6: 32px;
+  --e-3: 10px;  /* (12) */
+  --e-4: 14px;  /* (16) */
+  --e-5: 20px;  /* (24) */
+  --e-6: 28px;  /* (32) */
 
   /* Raios */
   --raio-pequeno: 8px;
@@ -78,10 +80,11 @@
   --raio-pilula: 999px;
 
   /* Tamanhos */
-  --toque: 44px;
-  --altura-campo: 50px;
-  --altura-nav: 64px;
-  --altura-cabecalho: 56px;
+  --toque: 44px;          /* área de toque mínima: não baixar */
+  --altura-campo: 46px;   /* (50) */
+  --altura-nav: 56px;     /* (64); cada separador continua com mais de 44 px de altura */
+  --altura-cabecalho: 52px; /* (56) */
+  --menu-entrada: 46px;   /* altura de cada entrada do menu (52) */
   --largura-max: 480px;
 
   /* Imagem do ecrã de início: altura da faixa e ponto focal (afina aqui o enquadramento:
@@ -180,7 +183,7 @@ textarea {
   background: var(--campo);
   color: var(--texto);
   font: inherit;
-  font-size: var(--t-base);
+  font-size: var(--t-campo);
   transition: border-color var(--rapido), box-shadow var(--rapido);
 }
 
@@ -220,8 +223,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 button:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
 
 .botao-grande {
-  min-height: 56px;
-  font-size: 17px;
+  min-height: 52px;
+  font-size: var(--t-cartao);
   box-shadow: 0 6px 20px rgba(92, 230, 92, 0.18);
 }
 
@@ -623,12 +626,12 @@ button:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
   min-width: 0;
   height: var(--altura-nav);
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   padding: 0;
   border-radius: 0;
   background: transparent;
   color: var(--texto-fraco);
-  font-size: 11px;
+  font-size: var(--t-etiqueta);
   font-weight: var(--p-forte);
 }
 
@@ -998,7 +1001,7 @@ button:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
   margin: 0;
   padding: 10px var(--e-1);
   text-align: center;
-  font-size: var(--t-cartao);
+  font-size: max(var(--t-campo), var(--t-cartao)); /* nunca abaixo de 16 px (zoom do iPhone) */
   font-weight: var(--p-forte);
 }
 
@@ -1877,7 +1880,7 @@ button,
 .cabecalho-titulo {
   margin: 0;
   overflow: hidden;
-  font-size: 22px;
+  font-size: var(--t-cabecalho);
   white-space: nowrap;
   text-overflow: ellipsis;
   transition: opacity var(--normal);
@@ -1944,8 +1947,8 @@ button,
 }
 
 .menu-avatar {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -1953,7 +1956,7 @@ button,
   border-radius: 50%;
   background: var(--verde);
   color: var(--sobre-verde);
-  font-size: 20px;
+  font-size: var(--t-seccao);
   font-weight: var(--p-numero);
 }
 
@@ -1973,8 +1976,8 @@ button,
 .menu-entrada {
   justify-content: flex-start;
   gap: var(--e-3);
-  min-height: 52px;
-  padding: var(--e-2) var(--e-1);
+  min-height: var(--menu-entrada);
+  padding: 6px var(--e-1);
   border-radius: var(--raio-campo);
   background: transparent;
   color: var(--texto);
@@ -1986,8 +1989,8 @@ button,
 .menu-entrada-nome { flex: 1; }
 
 .menu-entrada-icone {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -2866,3 +2869,32 @@ button,
 
 .nota-calorias { align-items: flex-start; gap: var(--e-2); }
 .nota-calorias svg { flex-shrink: 0; margin-top: 2px; color: var(--laranja); }
+
+/* ---------- Áreas de toque ---------- */
+
+/* Botões desenhados mais pequenos do que 44 px: uma área invisível à volta garante 44 × 44 de toque */
+.botao-sinal,
+.botao-pc,
+.botao-info,
+.exercicio-previsto .botao-icone,
+.aviso-peso-corporal .botao-link,
+.semana-sem-musculos .botao-link,
+.resultado-bloco .botao-link {
+  position: relative;
+}
+
+.botao-sinal::after,
+.botao-pc::after,
+.botao-info::after,
+.exercicio-previsto .botao-icone::after,
+.aviso-peso-corporal .botao-link::after,
+.semana-sem-musculos .botao-link::after,
+.resultado-bloco .botao-link::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--toque));
+  height: max(100%, var(--toque));
+  transform: translate(-50%, -50%);
+}

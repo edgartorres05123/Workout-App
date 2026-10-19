@@ -78,7 +78,7 @@ export default function MenuLateral({ nome, email, entradas, versao, onFechar })
                 disabled={desativada}
               >
                 <span className="menu-entrada-icone" aria-hidden="true">
-                  <Icone size={20} />
+                  <Icone size={18} />
                 </span>
                 <span className="menu-entrada-nome">{rotulo}</span>
                 {!perigo && <ChevronRight size={18} className="seta" aria-hidden="true" />}

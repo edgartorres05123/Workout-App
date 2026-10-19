@@ -31,7 +31,7 @@ export default function Cabecalho({ titulo, sobreImagem = false, onMenu }) {
     <header className={transparente ? 'cabecalho transparente' : 'cabecalho'}>
       <h1 className="cabecalho-titulo">{titulo}</h1>
       <button className="botao-menu" onClick={onMenu} aria-label="Abrir o menu" aria-haspopup="dialog">
-        <Menu size={24} />
+        <Menu size={22} />
       </button>
     </header>
   )
